@@ -15,7 +15,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .from('produits')
       .select(`
         *,
-        categories (nom)
+        categories (nom),
+        variantes_produits (*)
       `)
       .order('date_creation', { ascending: false });
 
@@ -23,7 +24,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const flattenedData = data.map((p: any) => ({
       ...p,
-      categorie_nom: p.categories?.nom
+      categorie_nom: p.categories?.nom,
+      variantes: p.variantes_produits || []
     }));
 
     res.status(200).json(flattenedData);

@@ -86,6 +86,7 @@ interface AdminProduct {
   est_actif: boolean;
   est_en_vedette: boolean;
   texte_alignement: 'left' | 'center' | 'right';
+  variantes: any[];
 }
 
 // --- Admin Components ---
@@ -433,7 +434,8 @@ export const AdminProducts: React.FC = () => {
     sections: [] as any[],
     est_actif: true,
     est_en_vedette: false,
-    texte_alignement: 'left' as 'left' | 'center' | 'right'
+    texte_alignement: 'left' as 'left' | 'center' | 'right',
+    variantes: [] as any[]
   });
 
   const fetchProducts = async () => {
@@ -591,6 +593,62 @@ export const AdminProducts: React.FC = () => {
     }
   };
 
+  const addVariant = () => {
+    setFormData(prev => ({
+      ...prev,
+      variantes: [...prev.variantes, { valeur_variante: '', prix_supplementaire: 0, stock: 0, image_variante_url: '' }]
+    }));
+  };
+
+  const removeVariant = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      variantes: prev.variantes.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateVariant = (index: number, field: string, value: any) => {
+    const newVariants = [...formData.variantes];
+    newVariants[index] = { ...newVariants[index], [field]: value };
+    setFormData(prev => ({ ...prev, variantes: newVariants }));
+  };
+
+  const handleVariantImageUpload = async (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(file as File);
+      });
+      
+      const base64 = await base64Promise;
+      
+      const response = await fetch(API_URL + '/api/upload', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+        },
+        body: JSON.stringify({ image_base64: base64 })
+      });
+
+      if (response.ok) {
+        const { url } = await response.json();
+        const newVariants = [...formData.variantes];
+        newVariants[index].image_variante_url = url;
+        setFormData(prev => ({ ...prev, variantes: newVariants }));
+      }
+    } catch (err) {
+      console.error('Error uploading variant image:', err);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const url = editingProduct ? API_URL + `/api/products/${editingProduct.id}` : API_URL + '/api/products';
@@ -633,7 +691,8 @@ export const AdminProducts: React.FC = () => {
           sections: [],
           est_actif: true,
           est_en_vedette: false,
-          texte_alignement: 'left'
+          texte_alignement: 'left',
+          variantes: []
         });
         fetchProducts();
       }
@@ -654,7 +713,8 @@ export const AdminProducts: React.FC = () => {
       sections: product.sections || [],
       est_actif: product.est_actif,
       est_en_vedette: product.est_en_vedette,
-      texte_alignement: product.texte_alignement || 'left'
+      texte_alignement: product.texte_alignement || 'left',
+      variantes: product.variantes || []
     });
     setShowModal(true);
   };
@@ -710,7 +770,8 @@ export const AdminProducts: React.FC = () => {
               sections: [],
               est_actif: true,
               est_en_vedette: false,
-              texte_alignement: 'left'
+              texte_alignement: 'left',
+              variantes: []
             });
             setShowModal(true);
           }}
@@ -1012,6 +1073,81 @@ export const AdminProducts: React.FC = () => {
                       />
                       <span className="text-xs uppercase tracking-widest text-gray-400">En vedette</span>
                     </label>
+                  </div>
+
+                  <div className="space-y-4 pt-4 border-t border-white/5">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs uppercase tracking-widest text-gray-400">Variantes (Couleurs/Tailles)</label>
+                      <button 
+                        type="button"
+                        onClick={addVariant}
+                        className="text-[10px] uppercase font-bold text-[#C9A227] hover:text-white transition-colors"
+                      >
+                        + Ajouter une variante
+                      </button>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      {formData.variantes.length === 0 ? (
+                        <p className="text-[10px] text-gray-500 italic">Aucune variante définie.</p>
+                      ) : (
+                        formData.variantes.map((v, idx) => (
+                          <div key={idx} className="bg-black/40 border border-white/5 p-3 rounded space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[9px] font-bold uppercase text-gray-500">Variante #{idx + 1}</span>
+                              <button type="button" onClick={() => removeVariant(idx)} className="text-red-500/50 hover:text-red-500"><Trash2 size={12} /></button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-[8px] uppercase text-gray-500 mb-1">Valeur (ex: Or, 30ml)</label>
+                                <input 
+                                  type="text"
+                                  value={v.valeur_variante}
+                                  onChange={e => updateVariant(idx, 'valeur_variante', e.target.value)}
+                                  className="w-full bg-black border border-gray-800 p-2 text-[10px] text-white focus:border-[#C9A227] outline-none"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[8px] uppercase text-gray-500 mb-1">Prix Supp. (MAD)</label>
+                                <input 
+                                  type="number"
+                                  value={v.prix_supplementaire}
+                                  onChange={e => updateVariant(idx, 'prix_supplementaire', Number(e.target.value))}
+                                  className="w-full bg-black border border-gray-800 p-2 text-[10px] text-white focus:border-[#C9A227] outline-none"
+                                />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-[8px] uppercase text-gray-500 mb-1">Stock</label>
+                                <input 
+                                  type="number"
+                                  value={v.stock}
+                                  onChange={e => updateVariant(idx, 'stock', Number(e.target.value))}
+                                  className="w-full bg-black border border-gray-800 p-2 text-[10px] text-white focus:border-[#C9A227] outline-none"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[8px] uppercase text-gray-500 mb-1">Image Variante</label>
+                                <div className="relative h-10 bg-black rounded border border-white/5 flex items-center px-2 overflow-hidden">
+                                  {v.image_variante_url ? (
+                                    <img src={v.image_variante_url || null} alt="" className="w-6 h-6 object-cover rounded mr-2" />
+                                  ) : (
+                                    <div className="w-6 h-6 bg-white/5 rounded mr-2 flex items-center justify-center"><Plus size={10} /></div>
+                                  )}
+                                  <span className="text-[8px] text-gray-500 truncate flex-1">{v.image_variante_url ? 'Image chargée' : 'Choisir une image'}</span>
+                                  <input 
+                                    type="file"
+                                    onChange={e => handleVariantImageUpload(idx, e)}
+                                    className="absolute inset-0 opacity-0 cursor-pointer"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
                 </div>
 

@@ -64,11 +64,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const user = authenticateToken(req);
     if (!user) return res.status(401).json({ error: 'Accès non autorisé.' });
 
-    const { nom, description, prix_base, est_actif, est_en_vedette, images_urls, sections, texte_alignement } = req.body;
+    const { nom, description, prix_base, est_actif, est_en_vedette, images_urls, sections, texte_alignement, variantes } = req.body;
     try {
       const image_principale_url = images_urls && images_urls.length > 0 ? images_urls[0] : "";
       
-      const { data, error } = await supabase
+      const { data: product, error } = await supabase
         .from('produits')
         .update({
           nom, 
@@ -86,7 +86,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .single();
 
       if (error) throw error;
-      res.status(200).json(data);
+
+      // Handle variants if provided
+      if (variantes && Array.isArray(variantes)) {
+        // First delete existing variants
+        await supabase
+          .from('variantes_produits')
+          .delete()
+          .eq('produit_id', productId);
+
+        const variantsToInsert = [];
+        for (const v of variantes) {
+          let image_variante_url = v.image_variante_url || "";
+          if (v.image_base64) {
+            const uploadRes = await cloudinary.uploader.upload(v.image_base64, { folder: "luxe_and_co/variants" });
+            image_variante_url = uploadRes.secure_url;
+          }
+          variantsToInsert.push({
+            produit_id: productId,
+            valeur_variante: v.valeur_variante,
+            prix_supplementaire: v.prix_supplementaire || 0,
+            stock: v.stock || 0,
+            image_variante_url
+          });
+        }
+        if (variantsToInsert.length > 0) {
+          const { error: varError } = await supabase
+            .from('variantes_produits')
+            .insert(variantsToInsert);
+          if (varError) throw varError;
+        }
+      }
+
+      res.status(200).json(product);
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: "Erreur lors de la mise à jour du produit." });
