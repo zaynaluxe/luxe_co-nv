@@ -931,6 +931,16 @@ export const AdminProducts: React.FC = () => {
                       required
                     />
                   </div>
+                  <div>
+                    <label className="block text-xs uppercase tracking-widest text-gray-400 mb-2">Slug (URL)</label>
+                    <input 
+                      type="text" 
+                      value={formData.slug}
+                      onChange={e => setFormData({...formData, slug: e.target.value.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '')})}
+                      placeholder="ex: bague-en-or"
+                      className="w-full bg-black border border-gray-800 p-3 text-white focus:border-[#C9A227] outline-none" 
+                    />
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs uppercase tracking-widest text-gray-400 mb-2">Prix (MAD)</label>
@@ -1624,8 +1634,8 @@ export const AdminOrders: React.FC = () => {
 
   const updateStatus = async (id: number, status: string) => {
     try {
-      const response = await fetch(API_URL + `/api/admin/orders/${id}/status`, {
-        method: 'PATCH',
+      const response = await fetch(API_URL + `/api/admin/orders/${id}`, {
+        method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
@@ -1633,6 +1643,9 @@ export const AdminOrders: React.FC = () => {
         body: JSON.stringify({ statut: status })
       });
       if (response.ok) {
+        toast.success('Statut mis à jour', {
+          style: { background: '#1a1a1a', color: '#4ade80', border: '1px solid #4ade80/20' }
+        });
         fetchOrders();
         if (selectedOrder && selectedOrder.id === id) {
           setSelectedOrder({ ...selectedOrder, statut: status as any });
@@ -1640,6 +1653,7 @@ export const AdminOrders: React.FC = () => {
       }
     } catch (err) {
       console.error('Error updating status:', err);
+      toast.error('Erreur lors de la mise à jour');
     }
   };
 
@@ -1749,6 +1763,9 @@ export const AdminOrders: React.FC = () => {
                     {selectedOrder.client_email && <p className="text-xs text-gray-400">{selectedOrder.client_email}</p>}
                     <p className="text-xs text-gray-400">{selectedOrder.adresse_livraison}</p>
                     <p className="text-xs text-gray-400">{selectedOrder.ville_livraison}</p>
+                    <p className="text-[10px] text-gray-500 uppercase pt-2 border-t border-white/5">
+                      Commandé le {new Date(selectedOrder.date_commande).toLocaleString()}
+                    </p>
                   </div>
                 </section>
 
@@ -1759,7 +1776,9 @@ export const AdminOrders: React.FC = () => {
                       <div key={i} className="flex justify-between items-center py-2 border-b border-white/5">
                         <div>
                           <p className="text-sm font-medium">{item.produit_nom}</p>
-                          <p className="text-[10px] text-gray-500 uppercase">{item.couleur} x {item.quantite}</p>
+                          <p className="text-[10px] text-gray-500 uppercase">
+                            {item.couleur} x {item.quantite} ({formatPrice(item.prix_unitaire)})
+                          </p>
                         </div>
                         <p className="text-sm font-mono">{formatPrice(item.prix_unitaire * item.quantite)}</p>
                       </div>

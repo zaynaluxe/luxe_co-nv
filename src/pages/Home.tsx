@@ -129,7 +129,7 @@ const Home: React.FC = () => {
                 transition={{ delay: i * 0.1 }}
                 className="group"
               >
-                <Link to={`/produit/${product.slug}`} className="block relative aspect-[3/4] overflow-hidden bg-black border border-white/5">
+                <Link to={`/produit/${product.slug || product.id}`} className="block relative aspect-[3/4] overflow-hidden bg-black border border-white/5">
                   <img 
                     src={product.image_url || null} 
                     alt={product.nom} 

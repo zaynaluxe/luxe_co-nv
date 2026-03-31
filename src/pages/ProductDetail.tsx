@@ -45,7 +45,7 @@ const SimilarProducts: React.FC<{ productId: number }> = ({ productId }) => {
       <h2 className="text-2xl font-serif tracking-widest uppercase mb-12">Produits Similaires</h2>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
         {products.map((p) => (
-          <Link key={p.id} to={`/produit/${p.slug}`} className="group space-y-4">
+          <Link key={p.id} to={`/produit/${p.slug || p.id}`} className="group space-y-4">
             <div className="aspect-[4/5] bg-black border border-white/5 overflow-hidden">
               <img src={p.image_url || null} alt={p.nom} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
             </div>
@@ -281,12 +281,24 @@ const ProductDetail: React.FC = () => {
 
   useEffect(() => {
     setLoading(true);
+    console.log('Fetching product detail for slug/id:', slug);
     fetch(API_URL + `/api/products/${slug}`)
       .then(res => res.json())
       .then(data => {
+        console.log('Received product data:', data);
+        if (data.error) {
+          console.error('API Error:', data.error);
+          setProduct(null);
+          setLoading(false);
+          return;
+        }
+
         const productData = {
           ...data,
-          variantes: Array.isArray(data.variantes) ? data.variantes : []
+          variantes: Array.isArray(data.variantes) ? data.variantes : [],
+          categorie: data.categorie || 'Sans catégorie',
+          prix_base: data.prix_base || 0,
+          description: data.description || 'Aucune description disponible.'
         };
         setProduct(productData);
         if (productData.variantes.length > 0) {
@@ -298,7 +310,7 @@ const ProductDetail: React.FC = () => {
         setLoading(false);
 
         // Facebook Pixel ViewContent Event
-        if (typeof window !== 'undefined' && (window as any).fbq) {
+        if (typeof window !== 'undefined' && (window as any).fbq && productData.id) {
           (window as any).fbq('track', 'ViewContent', {
             content_name: productData.nom,
             content_category: productData.categorie,
@@ -310,7 +322,8 @@ const ProductDetail: React.FC = () => {
         }
       })
       .catch(err => {
-        console.error('Error fetching product:', err);
+        console.error('Fetch Error:', err);
+        setProduct(null);
         setLoading(false);
       });
   }, [slug]);
