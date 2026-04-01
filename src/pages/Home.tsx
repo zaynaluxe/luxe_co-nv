@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { ShoppingBag, ShieldCheck, Truck, RotateCcw, ArrowRight } from 'lucide-react';
-import { formatPrice, API_URL } from '../utils';
+import { formatPrice } from '../utils';
+import { supabase } from '../lib/supabase';
 
 interface Product {
   id: number;
@@ -18,16 +19,43 @@ const Home: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(API_URL + '/api/products?limit=4')
-      .then(res => res.json())
-      .then(data => {
-        setNewArrivals(Array.isArray(data) ? data : []);
-        setLoading(false);
-      })
-      .catch(err => {
+    const fetchProducts = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('produits')
+          .select(`
+            id, 
+            nom, 
+            prix_base, 
+            slug, 
+            image_principale_url, 
+            categories (nom)
+          `)
+          .eq('est_actif', true)
+          .order('date_creation', { ascending: false })
+          .limit(4);
+
+        if (error) throw error;
+        
+        const flattenedData = data.map((p: any) => ({
+          id: p.id,
+          nom: p.nom,
+          prix: p.prix_base,
+          slug: p.slug,
+          image_url: p.image_principale_url,
+          categorie: Array.isArray(p.categories) ? p.categories[0]?.nom : p.categories?.nom
+        }));
+
+        console.log('Home Products:', flattenedData);
+        setNewArrivals(flattenedData);
+      } catch (err) {
         console.error('Error fetching products:', err);
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    fetchProducts();
   }, []);
 
   return (

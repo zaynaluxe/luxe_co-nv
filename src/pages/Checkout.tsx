@@ -4,6 +4,7 @@ import { useCart } from '../context/CartContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { ShoppingBag, Truck, CreditCard, CheckCircle, ChevronRight, MapPin, Phone, User, ShieldCheck, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '../lib/supabase';
 import { formatPrice } from '../utils';
 
 const Checkout: React.FC = () => {
@@ -46,31 +47,93 @@ const Checkout: React.FC = () => {
 
     setLoading(true);
     try {
-      // Simulate API call
-      setTimeout(() => {
-        const orderNumber = `LC-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-        
-        // Facebook Pixel Purchase Event
-        if (typeof window !== 'undefined' && (window as any).fbq) {
-          (window as any).fbq('track', 'Purchase', {
-            content_ids: cart.map(item => item.id.toString()),
-            content_type: 'product',
-            value: total,
-            currency: 'MAD',
-            num_items: cart.reduce((acc, item) => acc + item.quantite, 0),
-            contents: cart.map(item => ({
-              id: item.id.toString(),
-              quantity: item.quantite,
-              item_price: item.prix
-            }))
-          });
-        }
+      // 1. Get or create client
+      let clientId = null;
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      
+      // Try to find client by email first
+      const email = authUser?.email || `${formData.telephone}@luxeandco.com`; // Fallback for guest
+      const { data: existingClient } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle();
 
-        setLoading(false);
-        clearCart();
-        toast.success('Commande confirmée avec succès !');
-        navigate('/merci', { state: { orderId: orderNumber, total: total } });
-      }, 1500);
+      if (existingClient) {
+        clientId = existingClient.id;
+      } else {
+        const { data: newClient, error: clientError } = await supabase
+          .from('clients')
+          .insert([{
+            nom: formData.nom,
+            prenom: formData.prenom,
+            email: email,
+            telephone: formData.telephone,
+            adresse_defaut: formData.adresse,
+            ville_defaut: formData.ville,
+            mot_de_passe: 'guest-order'
+          }])
+          .select()
+          .single();
+        
+        if (clientError) throw clientError;
+        clientId = newClient.id;
+      }
+
+      // 2. Create order
+      const orderNumber = `LC-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+      const { data: order, error: orderError } = await supabase
+        .from('commandes')
+        .insert([{
+          client_id: clientId,
+          numero_commande: orderNumber,
+          total_ht: total / 1.2, // Simple calculation
+          total_ttc: total,
+          frais_livraison: shippingFee,
+          adresse_livraison: formData.adresse,
+          ville_livraison: formData.ville,
+          telephone_contact: formData.telephone,
+          statut: 'en_attente'
+        }])
+        .select()
+        .single();
+
+      if (orderError) throw orderError;
+
+      // 3. Create order lines
+      const orderLines = cart.map(item => ({
+        commande_id: order.id,
+        variante_id: item.variante_id,
+        quantite: item.quantite,
+        prix_unitaire: item.prix
+      }));
+
+      const { error: linesError } = await supabase
+        .from('lignes_commande')
+        .insert(orderLines);
+
+      if (linesError) throw linesError;
+
+      // Facebook Pixel Purchase Event
+      if (typeof window !== 'undefined' && (window as any).fbq) {
+        (window as any).fbq('track', 'Purchase', {
+          content_ids: cart.map(item => item.id.toString()),
+          content_type: 'product',
+          value: total,
+          currency: 'MAD',
+          num_items: cart.reduce((acc, item) => acc + item.quantite, 0),
+          contents: cart.map(item => ({
+            id: item.id.toString(),
+            quantity: item.quantite,
+            item_price: item.prix
+          }))
+        });
+      }
+
+      setLoading(false);
+      clearCart();
+      toast.success('Commande confirmée avec succès !');
+      navigate('/merci', { state: { orderId: orderNumber, total: total } });
     } catch (err) {
       console.error('Error creating order:', err);
       toast.error('Une erreur est survenue lors de la commande.');

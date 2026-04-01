@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Filter, Search, ChevronDown, Grid, List } from 'lucide-react';
-import { formatPrice, API_URL } from '../utils';
+import { formatPrice } from '../utils';
+import { supabase } from '../lib/supabase';
 
 interface Product {
   id: number;
@@ -24,29 +25,58 @@ const Catalog: React.FC = () => {
   const currentCategory = searchParams.get('cat');
 
   useEffect(() => {
-    setLoading(true);
-    
-    // Fetch products and categories in parallel
-    Promise.all([
-      fetch(API_URL + '/api/products').then(res => res.json()),
-      fetch(API_URL + '/api/categories').then(res => res.json())
-    ])
-      .then(([productsData, categoriesData]) => {
-        setProducts(Array.isArray(productsData) ? productsData : []);
-        if (Array.isArray(categoriesData)) {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [productsRes, categoriesRes] = await Promise.all([
+          supabase
+            .from('produits')
+            .select(`
+              id, 
+              nom, 
+              prix_base, 
+              slug, 
+              image_principale_url, 
+              categories (nom)
+            `)
+            .eq('est_actif', true)
+            .order('date_creation', { ascending: false }),
+          supabase
+            .from('categories')
+            .select('nom')
+        ]);
+
+        if (productsRes.error) throw productsRes.error;
+        if (categoriesRes.error) throw categoriesRes.error;
+
+        const flattenedProducts = productsRes.data.map((p: any) => ({
+          id: p.id,
+          nom: p.nom,
+          prix: p.prix_base,
+          slug: p.slug,
+          image_url: p.image_principale_url,
+          categorie: Array.isArray(p.categories) ? p.categories[0]?.nom : p.categories?.nom
+        }));
+
+        console.log('Catalog Products:', flattenedProducts);
+        setProducts(flattenedProducts);
+
+        if (categoriesRes.data) {
           const categoryOrder = ["Nouveautés", "Bijoux", "Montres", "Hijabs", "Accessoires"];
-          const sorted = categoriesData
+          const sorted = categoriesRes.data
             .filter((c: any) => categoryOrder.includes(c.nom))
             .sort((a: any, b: any) => categoryOrder.indexOf(a.nom) - categoryOrder.indexOf(b.nom))
             .map((c: any) => c.nom);
           setCategories(sorted);
         }
+      } catch (err) {
+        console.error('Error fetching catalog data:', err);
+      } finally {
         setLoading(false);
-      })
-      .catch(err => {
-        console.error('Error fetching data:', err);
-        setLoading(false);
-      });
+      }
+    };
+
+    fetchData();
   }, []);
 
   const filteredProducts = useMemo(() => {

@@ -15,12 +15,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
     const { email, mot_de_passe, nom, prenom } = req.body;
     try {
-      const { data: existingAdmin } = await supabase.from('utilisateurs').select('id').eq('role', 'admin').maybeSingle();
+      const { data: existingAdmin } = await supabase.from('clients').select('id').eq('email', email).maybeSingle();
       if (existingAdmin) return res.status(400).json({ error: 'Un administrateur existe déjà.' });
 
       const hashedPassword = await bcrypt.hash(mot_de_passe, 10);
-      const { data: admin, error } = await supabase.from('utilisateurs').insert([{
-        email, mot_de_passe: hashedPassword, nom, prenom, role: 'admin'
+      const { data: admin, error } = await supabase.from('clients').insert([{
+        email, mot_de_passe: hashedPassword, nom, prenom
       }]).select().single();
 
       if (error) throw error;
@@ -38,7 +38,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // GET /api/admin/stats
     try {
       const { data: orders } = await supabase.from('commandes').select('total_ttc, date_commande, statut');
-      const { data: clients } = await supabase.from('utilisateurs').select('id').eq('role', 'client');
+      const { data: clients } = await supabase.from('clients').select('id');
       const { data: products } = await supabase.from('produits').select('id');
 
       const totalRevenue = orders?.reduce((acc, o) => acc + (o.total_ttc || 0), 0) || 0;
@@ -63,7 +63,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!id) {
       // GET /api/admin/orders
       try {
-        const { data, error } = await supabase.from('commandes').select(`*, utilisateurs(nom, prenom, telephone, ville, adresse)`).order('date_commande', { ascending: false });
+        const { data, error } = await supabase.from('commandes').select(`*, clients(nom, prenom, telephone, ville_defaut, adresse_defaut)`).order('date_commande', { ascending: false });
         if (error) throw error;
         return res.status(200).json(data);
       } catch (err) {
@@ -74,7 +74,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (method === 'GET') {
         // GET /api/admin/orders/:id
         try {
-          const { data, error } = await supabase.from('commandes').select(`*, utilisateurs(nom, prenom, telephone, ville, adresse), lignes_commande(*, produits(nom, image_principale_url))`).eq('id', id).single();
+          const { data, error } = await supabase.from('commandes').select(`*, clients(nom, prenom, telephone, ville_defaut, adresse_defaut), lignes_commande(*, produits(nom, image_principale_url))`).eq('id', id).single();
           if (error) throw error;
           return res.status(200).json(data);
         } catch (err) {
@@ -97,7 +97,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } else if (resource === 'clients') {
     // GET /api/admin/clients
     try {
-      const { data, error } = await supabase.from('utilisateurs').select('*').eq('role', 'client').order('nom');
+      const { data, error } = await supabase.from('clients').select('*').order('nom');
       if (error) throw error;
       return res.status(200).json(data);
     } catch (err) {
@@ -113,17 +113,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch (err) {
       console.error(err);
       return res.status(500).json({ error: 'Erreur lors de la récupération des produits.' });
-    }
-  } else if (resource === 'upload') {
-    // POST /api/admin/upload
-    if (method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-    const { image_base64, folder = "luxe_and_co/general" } = req.body;
-    try {
-      const uploadRes = await cloudinary.uploader.upload(image_base64, { folder });
-      return res.status(200).json({ url: uploadRes.secure_url });
-    } catch (err) {
-      console.error(err);
-      return res.status(500).json({ error: 'Erreur lors de l\'upload de l\'image.' });
     }
   } else {
     return res.status(404).json({ error: 'Resource not found' });

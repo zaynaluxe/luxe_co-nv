@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 
-import { API_URL } from './utils';
+import { supabase } from './lib/supabase';
 import { CartProvider } from './context/CartContext';
 
 // Components
@@ -103,9 +103,10 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     const loadPixels = async () => {
       try {
-        const response = await fetch(API_URL + '/api/pixels');
-        if (response.ok) {
-          const pixels = await response.json();
+        const { data: pixels, error } = await supabase.from('pixels').select('*');
+        if (error) throw error;
+        
+        if (pixels) {
           pixels.forEach((pixel: any) => {
             if (pixel.type === 'facebook') {
               // Facebook Pixel
@@ -132,7 +133,7 @@ const AppContent: React.FC = () => {
               const script = document.createElement('script');
               script.innerHTML = `
                 !function (w, d, t) {
-                  w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","detach","on_ready","delete"],ttq.setAndLog=function(t,e){return function(){var n=Math.random().toString(36).substring(7);if(w.TiktokAnalyticsObject&&w[t]&&w[t].setAndLog){return w[t].setAndLog(t,e)}else{console.log("TikTok Pixel not loaded yet")}}};for(var i=0;i<ttq.methods.length;i++)ttq[i]=ttq.setAndLog(ttq.methods[i],ttq);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq[e][n]=ttq.setAndLog(ttq.methods[n],e);return e};ttq.load=function(e,n){var t="https://analytics.tiktok.com/i18n/pixel/events.js";ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=t,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};var o=d.createElement("script");o.type="text/javascript",o.async=!0,o.src=t;var a=d.getElementsByTagName("script")[0];a.parentNode.insertBefore(o,a)};
+                  w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","detach","on_ready","delete"],ttq.setAndLog=function(t,e){return function(){var n=Math.random().toString(36).substring(7);if(w.TiktokAnalyticsObject&&w[t]&&w[t].setAndLog){return w[t].setAndLog(t,e)}else{console.log("TikTok Pixel not loaded yet")}}};for(var i=0;i<ttq.methods.length;i++)ttq[ttq.methods[i]]=ttq.setAndLog(ttq.methods[i],ttq);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndLog(ttq.methods[n],e);return e};ttq.load=function(e,n){var t="https://analytics.tiktok.com/i18n/pixel/events.js";ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=t,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};var o=d.createElement("script");o.type="text/javascript",o.async=!0,o.src=t;var a=d.getElementsByTagName("script")[0];a.parentNode.insertBefore(o,a)};
                   ttq.load('${pixel.pixel_id}');
                   ttq.page();
                 }(window, document, 'ttq');

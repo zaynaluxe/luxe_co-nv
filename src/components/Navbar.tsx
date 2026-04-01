@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { ShoppingBag, User, Menu, X, Search } from 'lucide-react';
-import { API_URL } from '../utils';
+import { supabase } from '../lib/supabase';
 import { useCart } from '../context/CartContext';
 
 interface NavbarProps {
@@ -16,20 +16,29 @@ const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith('/admin');
 
-  const categoryOrder = ["Nouveautés", "Cosmétiques", "Parfums", "Accessoires", "Vêtements", "Montres", "Sacs"];
+  const categoryOrder = ["Nouveautés", "Bijoux", "Montres", "Hijabs", "Accessoires"];
 
   React.useEffect(() => {
-    fetch(API_URL + '/api/categories')
-      .then(res => res.json())
-      .then(data => {
+    const fetchCategories = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('categories')
+          .select('nom, slug');
+
+        if (error) throw error;
+
         if (Array.isArray(data)) {
           const filteredAndSorted = data
             .filter(cat => categoryOrder.includes(cat.nom))
             .sort((a, b) => categoryOrder.indexOf(a.nom) - categoryOrder.indexOf(b.nom));
           setCategories(filteredAndSorted);
         }
-      })
-      .catch(err => console.error('Error fetching categories:', err));
+      } catch (err) {
+        console.error('Error fetching categories:', err);
+      }
+    };
+
+    fetchCategories();
   }, []);
 
   if (isAdmin) return null;

@@ -58,6 +58,7 @@ CREATE TABLE clients (
     telephone VARCHAR(20),
     adresse_defaut TEXT,
     ville_defaut VARCHAR(100),
+    role VARCHAR(20) DEFAULT 'client',
     date_inscription TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX idx_clients_email ON clients(email);

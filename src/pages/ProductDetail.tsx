@@ -3,7 +3,8 @@ import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { ShoppingBag, Heart, Share2, Star, ChevronRight, ChevronLeft, ShieldCheck, Truck, RotateCcw, User, Phone, MapPin } from 'lucide-react';
 import { useCart } from '../context/CartContext';
-import { formatPrice, API_URL } from '../utils';
+import { formatPrice } from '../utils';
+import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
 
 interface Variante {
@@ -28,15 +29,49 @@ interface Product {
   texte_alignement?: 'left' | 'center' | 'right';
 }
 
-const SimilarProducts: React.FC<{ productId: number }> = ({ productId }) => {
+const SimilarProducts: React.FC<{ productId: number, categoryName: string }> = ({ productId, categoryName }) => {
   const [products, setProducts] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch(API_URL + `/api/products/${productId}/similar`)
-      .then(res => res.json())
-      .then(data => setProducts(Array.isArray(data) ? data : []))
-      .catch(err => console.error('Error fetching similar products:', err));
-  }, [productId]);
+    const fetchSimilar = async () => {
+      try {
+        const { data: catData } = await supabase.from('categories').select('id').eq('nom', categoryName).single();
+        if (!catData) return;
+
+        const { data, error } = await supabase
+          .from('produits')
+          .select(`
+            id, 
+            nom, 
+            prix_base, 
+            slug, 
+            image_principale_url, 
+            categories (nom)
+          `)
+          .eq('categorie_id', catData.id)
+          .neq('id', productId)
+          .eq('est_actif', true)
+          .limit(4);
+
+        if (error) throw error;
+        
+        const flattenedData = data.map((p: any) => ({
+          id: p.id,
+          nom: p.nom,
+          prix: p.prix_base,
+          slug: p.slug,
+          image_url: p.image_principale_url,
+          categorie: Array.isArray(p.categories) ? p.categories[0]?.nom : p.categories?.nom
+        }));
+
+        setProducts(flattenedData);
+      } catch (err) {
+        console.error('Error fetching similar products:', err);
+      }
+    };
+
+    fetchSimilar();
+  }, [productId, categoryName]);
 
   if (products.length === 0) return null;
 
@@ -83,45 +118,57 @@ const QuickOrderForm: React.FC<{
 
     setSubmitting(true);
     try {
-      const response = await fetch(API_URL + '/api/orders/quick', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          items: [{
-            produit_id: product.id,
-            variante_id: selectedVariante?.id || 0,
-            quantite: quantity
-          }],
-          nom_complet: formData.nom_complet,
-          telephone: formData.telephone,
-          ville: formData.ville,
-          quantite: quantity
-        })
-      });
+      const prix_unitaire = product.prix_base + (selectedVariante?.prix_supp || 0);
+      const total_ttc = prix_unitaire * quantity;
+      const numero_commande = `QC-${Date.now().toString().slice(-6)}`;
 
-      if (response.ok) {
-        // Facebook Pixel Purchase Event
-        if (typeof window !== 'undefined' && (window as any).fbq) {
-          (window as any).fbq('track', 'Purchase', {
-            content_name: product.nom,
-            content_category: product.categorie,
-            content_ids: [product.id.toString()],
-            content_type: 'product',
-            value: (product.prix_base + (selectedVariante?.prix_supp || 0)) * quantity,
-            currency: 'MAD',
-            num_items: quantity,
-            variant: selectedVariante?.couleur || 'Standard'
-          });
-        }
+      const { data: orderRes, error: orderError } = await supabase.from('commandes').insert([{
+        numero_commande,
+        total_ht: total_ttc,
+        total_ttc,
+        frais_livraison: 0,
+        adresse_livraison: formData.ville, // Using ville as adresse for quick order
+        ville_livraison: formData.ville,
+        telephone_contact: formData.telephone,
+        client_display_name: formData.nom_complet,
+        client_display_phone: formData.telephone,
+        statut: 'en_attente'
+      }]).select().single();
 
-        toast.success('Commande envoyée avec succès ! Notre équipe vous contactera sous peu.');
-        setFormData({ nom_complet: '', telephone: '', ville: '' });
-        setQuantity(1);
-      } else {
-        toast.error('Erreur lors de l\'envoi de la commande');
+      if (orderError) throw orderError;
+
+      const { error: lineError } = await supabase.from('lignes_commande').insert([{
+        commande_id: orderRes.id,
+        produit_id: product.id,
+        variante_id: selectedVariante?.id || null,
+        quantite: quantity,
+        prix_unitaire,
+        produit_nom: product.nom,
+        couleur: selectedVariante?.couleur || 'Standard'
+      }]);
+
+      if (lineError) throw lineError;
+
+      // Facebook Pixel Purchase Event
+      if (typeof window !== 'undefined' && (window as any).fbq) {
+        (window as any).fbq('track', 'Purchase', {
+          content_name: product.nom,
+          content_category: product.categorie,
+          content_ids: [product.id.toString()],
+          content_type: 'product',
+          value: total_ttc,
+          currency: 'MAD',
+          num_items: quantity,
+          variant: selectedVariante?.couleur || 'Standard'
+        });
       }
+
+      toast.success('Commande envoyée avec succès ! Notre équipe vous contactera sous peu.');
+      setFormData({ nom_complet: '', telephone: '', ville: '' });
+      setQuantity(1);
     } catch (err) {
-      toast.error('Erreur de connexion');
+      console.error('Error submitting quick order:', err);
+      toast.error('Erreur lors de l\'envoi de la commande');
     } finally {
       setSubmitting(false);
     }
@@ -225,16 +272,24 @@ const ReviewsSection: React.FC<{ productId: number }> = ({ productId }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(API_URL + `/api/products/${productId}/reviews`)
-      .then(res => res.json())
-      .then(data => {
-        setReviews(Array.isArray(data) ? data : []);
-        setLoading(false);
-      })
-      .catch(err => {
+    const fetchReviews = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('avis')
+          .select('*')
+          .eq('produit_id', productId)
+          .order('date_avis', { ascending: false });
+
+        if (error) throw error;
+        setReviews(data || []);
+      } catch (err) {
         console.error('Error fetching reviews:', err);
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    fetchReviews();
   }, [productId]);
 
   if (loading || reviews.length === 0) return null;
@@ -280,52 +335,96 @@ const ProductDetail: React.FC = () => {
   const { addToCart } = useCart();
 
   useEffect(() => {
-    setLoading(true);
-    console.log('Fetching product detail for slug/id:', slug);
-    fetch(API_URL + `/api/products/${slug}`)
-      .then(res => res.json())
-      .then(data => {
-        console.log('Received product data:', data);
-        if (data.error) {
-          console.error('API Error:', data.error);
+    const fetchProduct = async () => {
+      setLoading(true);
+      console.log('Fetching product detail for slug/id:', slug);
+      try {
+        const cleanId = slug?.toString().replace(/\/$/, '');
+        const isNumeric = !isNaN(Number(cleanId));
+        const orFilter = isNumeric 
+          ? `slug.eq."${cleanId}",id.eq.${cleanId}` 
+          : `slug.eq."${cleanId}"`;
+
+        const { data: productData, error } = await supabase
+          .from('produits')
+          .select(`
+            id, 
+            nom, 
+            description, 
+            prix_base, 
+            slug, 
+            image_principale_url, 
+            images_urls,
+            sections,
+            texte_alignement,
+            categories (nom),
+            variantes_produits (
+              id, 
+              valeur_variante, 
+              prix_supplementaire, 
+              stock, 
+              image_variante_url
+            )
+          `)
+          .or(orFilter)
+          .maybeSingle();
+
+        if (error) throw error;
+        if (!productData) {
           setProduct(null);
-          setLoading(false);
           return;
         }
 
-        const productData = {
-          ...data,
-          variantes: Array.isArray(data.variantes) ? data.variantes : [],
-          categorie: data.categorie || 'Sans catégorie',
-          prix_base: data.prix_base || 0,
-          description: data.description || 'Aucune description disponible.'
+        const formattedProduct: Product = {
+          id: productData.id,
+          nom: productData.nom,
+          description: productData.description || 'Aucune description disponible.',
+          prix_base: productData.prix_base || 0,
+          slug: productData.slug,
+          image_url: productData.image_principale_url,
+          categorie: Array.isArray(productData.categories) ? productData.categories[0]?.nom : (productData.categories as any)?.nom || 'Sans catégorie',
+          images_urls: productData.images_urls || [],
+          sections: productData.sections || [],
+          texte_alignement: productData.texte_alignement || 'left',
+          variantes: (productData.variantes_produits || []).map((v: any) => ({
+            id: v.id,
+            couleur: v.valeur_variante,
+            prix_supp: v.prix_supplementaire || 0,
+            stock: v.stock || 0,
+            image_url: v.image_variante_url
+          }))
         };
-        setProduct(productData);
-        if (productData.variantes.length > 0) {
-          setSelectedVariante(productData.variantes[0]);
-          setMainImage(productData.variantes[0].image_url || productData.image_url);
+
+        console.log('Received product data:', formattedProduct);
+        setProduct(formattedProduct);
+
+        if (formattedProduct.variantes.length > 0) {
+          setSelectedVariante(formattedProduct.variantes[0]);
+          setMainImage(formattedProduct.variantes[0].image_url || formattedProduct.image_url);
         } else {
-          setMainImage(productData.image_url);
+          setMainImage(formattedProduct.image_url);
         }
-        setLoading(false);
 
         // Facebook Pixel ViewContent Event
-        if (typeof window !== 'undefined' && (window as any).fbq && productData.id) {
+        if (typeof window !== 'undefined' && (window as any).fbq && formattedProduct.id) {
           (window as any).fbq('track', 'ViewContent', {
-            content_name: productData.nom,
-            content_category: productData.categorie,
-            content_ids: [productData.id.toString()],
+            content_name: formattedProduct.nom,
+            content_category: formattedProduct.categorie,
+            content_ids: [formattedProduct.id.toString()],
             content_type: 'product',
-            value: productData.prix_base,
+            value: formattedProduct.prix_base,
             currency: 'MAD'
           });
         }
-      })
-      .catch(err => {
+      } catch (err) {
         console.error('Fetch Error:', err);
         setProduct(null);
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    fetchProduct();
   }, [slug]);
 
   const handleAddToCart = () => {
@@ -593,7 +692,7 @@ const ProductDetail: React.FC = () => {
         )}
 
         {/* Similar Products */}
-        <SimilarProducts productId={product.id} />
+        <SimilarProducts productId={product.id} categoryName={product.categorie} />
       </div>
     </div>
   );

@@ -6,8 +6,10 @@ import {
   TrendingUp, Package, Clock, CheckCircle, ArrowUp, ArrowDown,
   Activity, Save
 } from 'lucide-react';
-import { formatPrice, API_URL } from '../utils';
+import { formatPrice, API_URL, apiFetch } from '../utils';
+import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
+import bcrypt from 'bcryptjs';
 
 // --- Types ---
 interface AdminStats {
@@ -102,7 +104,7 @@ export const AdminLogin: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
   const handleSetup = async () => {
     setSetupLoading(true);
     try {
-      const response = await fetch(API_URL + '/api/admin/setup', { method: 'POST' });
+      const response = await apiFetch(API_URL + '/api/admin/setup', { method: 'POST' });
       const data = await response.json();
       if (response.ok) {
         toast.success(data.message);
@@ -121,20 +123,32 @@ export const AdminLogin: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
     setError('');
     setLoading(true);
     try {
-      const response = await fetch(API_URL + '/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, mot_de_passe: password })
-      });
-      const data = await response.json();
-      if (response.ok) {
-        localStorage.setItem('admin_token', data.token);
-        onLogin();
-      } else {
-        setError(data.error || 'Erreur de connexion');
+      const { data: client, error: fetchError } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('email', email)
+        .single();
+
+      console.log('Client trouvé:', client ? 'oui' : 'non');
+
+      if (fetchError || !client) {
+        setError('Email ou mot de passe incorrect.');
+        return;
       }
+
+      const isMatch = await bcrypt.compare(password, client.mot_de_passe);
+      if (!isMatch) {
+        setError('Email ou mot de passe incorrect.');
+        return;
+      }
+
+      localStorage.setItem('admin_token', 'direct-supabase-session');
+      localStorage.setItem('admin_user', JSON.stringify({ id: client.id, email: client.email, role: 'admin' }));
+      onLogin();
+      toast.success('Connexion réussie');
     } catch (err) {
-      setError('Erreur serveur');
+      console.error('Login error:', err);
+      setError('Erreur de connexion');
     } finally {
       setLoading(false);
     }
@@ -282,18 +296,48 @@ export const AdminDashboard: React.FC = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await fetch(API_URL + '/api/admin/stats', {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('admin_token')}` }
-        });
-        if (response.ok) {
-          const data = await response.json();
+        const { data: orders, error } = await supabase
+          .from('commandes')
+          .select('total_ttc, statut, date_commande');
+        
+        if (error) throw error;
+
+        if (orders) {
+          const now = new Date();
+          const today = now.toISOString().split('T')[0];
+          const thisMonth = now.getMonth();
+          const thisYear = now.getFullYear();
+
+          const ca_jour = orders
+            .filter(o => o.date_commande.startsWith(today))
+            .reduce((sum, o) => sum + (o.total_ttc || 0), 0);
+
+          const ca_mois = orders
+            .filter(o => {
+              const d = new Date(o.date_commande);
+              return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+            })
+            .reduce((sum, o) => sum + (o.total_ttc || 0), 0);
+
+          const commandes_attente = orders.filter(o => o.statut === 'en_attente').length;
+          const livraisons_reussies = orders.filter(o => o.statut === 'livree').length;
+
+          // For top products and repartition, we'd ideally need more data or more complex queries,
+          // but for now we'll provide some basic repartition based on what we have.
+          const repartition_statut = Object.entries(
+            orders.reduce((acc: any, o) => {
+              acc[o.statut] = (acc[o.statut] || 0) + 1;
+              return acc;
+            }, {})
+          ).map(([statut, count]) => ({ statut, count: count as number }));
+
           setStats({
-            dailyRevenue: data.ca_jour,
-            monthlyRevenue: data.ca_mois,
-            pendingOrders: data.commandes_attente,
-            completedOrders: data.livraisons_reussies,
-            topProducts: data.top_produits,
-            repartition: data.repartition_statut
+            dailyRevenue: ca_jour,
+            monthlyRevenue: ca_mois,
+            pendingOrders: commandes_attente,
+            completedOrders: livraisons_reussies,
+            topProducts: [], // Top products would need a join or more data
+            repartition: repartition_statut
           });
         }
       } catch (err) {
@@ -440,13 +484,12 @@ export const AdminProducts: React.FC = () => {
 
   const fetchProducts = async () => {
     try {
-      const response = await fetch(API_URL + '/api/admin/products', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('admin_token')}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setProducts(data);
-      }
+      const { data, error } = await supabase
+        .from('produits')
+        .select('*, categories(nom)');
+      
+      if (error) throw error;
+      if (data) setProducts(data);
     } catch (err) {
       console.error('Error fetching products:', err);
     } finally {
@@ -456,9 +499,12 @@ export const AdminProducts: React.FC = () => {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch(API_URL + '/api/categories');
-      if (response.ok) {
-        const data = await response.json();
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*');
+      
+      if (error) throw error;
+      if (data) {
         setCategories(data);
         if (data.length > 0 && formData.categorie_id === 0) {
           setFormData(prev => ({ ...prev, categorie_id: data[0].id }));
@@ -496,7 +542,7 @@ export const AdminProducts: React.FC = () => {
         
         const base64 = await base64Promise;
         
-        const response = await fetch(API_URL + '/api/upload', {
+        const response = await apiFetch(API_URL + '/api/upload', {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
@@ -571,20 +617,25 @@ export const AdminProducts: React.FC = () => {
       
       const base64 = await base64Promise;
       
-      const response = await fetch(API_URL + '/api/upload', {
+      const cloudinaryFormData = new FormData();
+      cloudinaryFormData.append('file', base64);
+      cloudinaryFormData.append('upload_preset', import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'luxe_co_preset');
+      cloudinaryFormData.append('cloud_name', import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dznwuewea');
+
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dznwuewea'}/image/upload`, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
-        },
-        body: JSON.stringify({ image_base64: base64 })
+        body: cloudinaryFormData
       });
 
       if (response.ok) {
-        const { url } = await response.json();
-        const newSections = [...formData.sections];
-        newSections[index].content.image = url;
-        setFormData(prev => ({ ...prev, sections: newSections }));
+        const data = await response.json();
+        const url = data.secure_url;
+        setFormData(prev => ({
+          ...prev,
+          sections: prev.sections.map((section, i) => 
+            i === index ? { ...section, content: { ...section.content, image: url } } : section
+          )
+        }));
       }
     } catch (err) {
       console.error('Error uploading section image:', err);
@@ -627,7 +678,7 @@ export const AdminProducts: React.FC = () => {
       
       const base64 = await base64Promise;
       
-      const response = await fetch(API_URL + '/api/upload', {
+      const response = await apiFetch(API_URL + '/api/upload', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -638,9 +689,12 @@ export const AdminProducts: React.FC = () => {
 
       if (response.ok) {
         const { url } = await response.json();
-        const newVariants = [...formData.variantes];
-        newVariants[index].image_variante_url = url;
-        setFormData(prev => ({ ...prev, variantes: newVariants }));
+        setFormData(prev => ({
+          ...prev,
+          variantes: prev.variantes.map((variant, i) => 
+            i === index ? { ...variant, image_variante_url: url } : variant
+          )
+        }));
       }
     } catch (err) {
       console.error('Error uploading variant image:', err);
@@ -651,12 +705,6 @@ export const AdminProducts: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const url = editingProduct ? API_URL + `/api/products/${editingProduct.id}` : API_URL + '/api/products';
-    const method = editingProduct ? 'PUT' : 'POST';
-
-    // Pour la création, on envoie images_base64 si on veut que le backend gère tout, 
-    // mais ici on a déjà uploadé via /api/upload, donc on envoie images_urls.
-    // On doit s'assurer que le backend accepte images_urls dans les deux cas.
     
     if (formData.prix_base <= 0) {
       toast.error('Le prix doit être supérieur à 0');
@@ -669,35 +717,41 @@ export const AdminProducts: React.FC = () => {
     };
 
     try {
-      const response = await fetch(url, {
-        method,
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (response.ok) {
-        setShowModal(false);
-        setEditingProduct(null);
-        setFormData({
-          nom: '',
-          slug: '',
-          description: '',
-          prix_base: 0,
-          categorie_id: categories[0]?.id || 0,
-          images_urls: [],
-          sections: [],
-          est_actif: true,
-          est_en_vedette: false,
-          texte_alignement: 'left',
-          variantes: []
-        });
-        fetchProducts();
+      let error;
+      if (editingProduct) {
+        const { error: updateError } = await supabase
+          .from('produits')
+          .update(payload)
+          .eq('id', editingProduct.id);
+        error = updateError;
+      } else {
+        const { error: insertError } = await supabase
+          .from('produits')
+          .insert([payload]);
+        error = insertError;
       }
+
+      if (error) throw error;
+
+      setShowModal(false);
+      setEditingProduct(null);
+      setFormData({
+        nom: '',
+        slug: '',
+        description: '',
+        prix_base: 0,
+        categorie_id: categories[0]?.id || 0,
+        images_urls: [],
+        sections: [],
+        est_actif: true,
+        est_en_vedette: false,
+        texte_alignement: 'left',
+        variantes: []
+      });
+      fetchProducts();
     } catch (err) {
       console.error('Error saving product:', err);
+      toast.error('Erreur lors de l\'enregistrement du produit');
     }
   };
 
@@ -728,25 +782,17 @@ export const AdminProducts: React.FC = () => {
   const confirmDelete = async () => {
     if (!productToDelete) return;
     
-    const token = localStorage.getItem('admin_token');
-    console.log('Token JWT présent:', !!token);
-    
     try {
-      const response = await fetch(API_URL + `/api/products/${productToDelete.id}`, {
-        method: 'DELETE',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      if (response.ok) {
-        setShowDeleteConfirm(false);
-        setProductToDelete(null);
-        fetchProducts();
-      } else {
-        const errorData = await response.json();
-        alert(errorData.error || 'Erreur lors de la suppression du produit.');
-      }
+      const { error } = await supabase
+        .from('produits')
+        .delete()
+        .eq('id', productToDelete.id);
+
+      if (error) throw error;
+
+      setShowDeleteConfirm(false);
+      setProductToDelete(null);
+      fetchProducts();
     } catch (err) {
       console.error('Error deleting product:', err);
       alert('Une erreur est survenue lors de la suppression.');
@@ -1368,13 +1414,12 @@ export const AdminPromos: React.FC = () => {
 
   const fetchPromos = async () => {
     try {
-      const response = await fetch(API_URL + '/api/promotions', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('admin_token')}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setPromos(data);
-      }
+      const { data, error } = await supabase
+        .from('promotions')
+        .select('*');
+      
+      if (error) throw error;
+      if (data) setPromos(data);
     } catch (err) {
       console.error('Error fetching promos:', err);
     } finally {
@@ -1388,11 +1433,16 @@ export const AdminPromos: React.FC = () => {
 
   const handleToggle = async (id: number) => {
     try {
-      const response = await fetch(API_URL + `/api/promotions/${id}/toggle`, {
-        method: 'PATCH',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('admin_token')}` }
-      });
-      if (response.ok) fetchPromos();
+      const promo = promos.find(p => p.id === id);
+      if (!promo) return;
+
+      const { error } = await supabase
+        .from('promotions')
+        .update({ est_actif: !promo.est_actif })
+        .eq('id', id);
+
+      if (error) throw error;
+      fetchPromos();
     } catch (err) {
       console.error('Error toggling promo:', err);
     }
@@ -1401,11 +1451,13 @@ export const AdminPromos: React.FC = () => {
   const handleDelete = async (id: number) => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce code promo ?')) return;
     try {
-      const response = await fetch(API_URL + `/api/promotions/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('admin_token')}` }
-      });
-      if (response.ok) fetchPromos();
+      const { error } = await supabase
+        .from('promotions')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      fetchPromos();
     } catch (err) {
       console.error('Error deleting promo:', err);
     }
@@ -1413,24 +1465,28 @@ export const AdminPromos: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const url = editingPromo ? API_URL + `/api/promotions/${editingPromo.id}` : API_URL + '/api/promotions';
-    const method = editingPromo ? 'PUT' : 'POST';
 
     try {
-      const response = await fetch(url, {
-        method,
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
-        },
-        body: JSON.stringify(formData)
-      });
-      if (response.ok) {
-        setShowModal(false);
-        setEditingPromo(null);
-        setFormData({ code: '', type_remise: 'pourcentage', valeur_remise: 0, date_expiration: '', usage_max: 100 });
-        fetchPromos();
+      let error;
+      if (editingPromo) {
+        const { error: updateError } = await supabase
+          .from('promotions')
+          .update(formData)
+          .eq('id', editingPromo.id);
+        error = updateError;
+      } else {
+        const { error: insertError } = await supabase
+          .from('promotions')
+          .insert([formData]);
+        error = insertError;
       }
+
+      if (error) throw error;
+
+      setShowModal(false);
+      setEditingPromo(null);
+      setFormData({ code: '', type_remise: 'pourcentage', valeur_remise: 0, date_expiration: '', usage_max: 100 });
+      fetchPromos();
     } catch (err) {
       console.error('Error saving promo:', err);
     }
@@ -1599,13 +1655,22 @@ export const AdminOrders: React.FC = () => {
 
   const fetchOrders = async () => {
     try {
-      const response = await fetch(API_URL + '/api/admin/orders', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('admin_token')}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setOrders(data);
-      }
+      const { data, error } = await supabase
+        .from('commandes')
+        .select(`
+          *,
+          lignes_commande (
+            *,
+            variantes_produits (
+              *,
+              produits (*)
+            )
+          )
+        `)
+        .order('date_commande', { ascending: false });
+      
+      if (error) throw error;
+      if (data) setOrders(data);
     } catch (err) {
       console.error('Error fetching orders:', err);
     } finally {
@@ -1619,11 +1684,14 @@ export const AdminOrders: React.FC = () => {
 
   const fetchOrderDetail = async (id: number) => {
     try {
-      const response = await fetch(API_URL + `/api/admin/orders/${id}`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('admin_token')}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
+      const { data, error } = await supabase
+        .from('commandes')
+        .select('*, items:commande_items(*)')
+        .eq('id', id)
+        .single();
+      
+      if (error) throw error;
+      if (data) {
         setSelectedOrder(data);
         setShowDetail(true);
       }
@@ -1634,22 +1702,19 @@ export const AdminOrders: React.FC = () => {
 
   const updateStatus = async (id: number, status: string) => {
     try {
-      const response = await fetch(API_URL + `/api/admin/orders/${id}`, {
-        method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
-        },
-        body: JSON.stringify({ statut: status })
+      const { error } = await supabase
+        .from('commandes')
+        .update({ statut: status })
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      toast.success('Statut mis à jour', {
+        style: { background: '#1a1a1a', color: '#4ade80', border: '1px solid #4ade80/20' }
       });
-      if (response.ok) {
-        toast.success('Statut mis à jour', {
-          style: { background: '#1a1a1a', color: '#4ade80', border: '1px solid #4ade80/20' }
-        });
-        fetchOrders();
-        if (selectedOrder && selectedOrder.id === id) {
-          setSelectedOrder({ ...selectedOrder, statut: status as any });
-        }
+      fetchOrders();
+      if (selectedOrder && selectedOrder.id === id) {
+        setSelectedOrder({ ...selectedOrder, statut: status as any });
       }
     } catch (err) {
       console.error('Error updating status:', err);
@@ -1829,9 +1894,12 @@ export const AdminPixels: React.FC = () => {
 
   const fetchPixels = async () => {
     try {
-      const response = await fetch(API_URL + '/api/pixels');
-      if (response.ok) {
-        const data = await response.json();
+      const { data, error } = await supabase
+        .from('pixels')
+        .select('*');
+      
+      if (error) throw error;
+      if (data) {
         setPixels(data);
         const fb = data.find((p: any) => p.type === 'facebook');
         const tt = data.find((p: any) => p.type === 'tiktok');
@@ -1853,17 +1921,24 @@ export const AdminPixels: React.FC = () => {
 
     setSaving(type);
     try {
-      const response = await fetch(API_URL + '/api/admin/pixels', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
-        },
-        body: JSON.stringify({ type, pixel_id: pixelId })
-      });
-      if (response.ok) {
-        fetchPixels();
+      const existing = pixels.find(p => p.type === type);
+      let error;
+
+      if (existing) {
+        const { error: updateError } = await supabase
+          .from('pixels')
+          .update({ pixel_id: pixelId, est_actif: true })
+          .eq('id', existing.id);
+        error = updateError;
+      } else {
+        const { error: insertError } = await supabase
+          .from('pixels')
+          .insert([{ type, pixel_id: pixelId, est_actif: true }]);
+        error = insertError;
       }
+
+      if (error) throw error;
+      fetchPixels();
     } catch (err) {
       console.error('Error saving pixel:', err);
     } finally {
@@ -1878,15 +1953,16 @@ export const AdminPixels: React.FC = () => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce pixel ?')) return;
 
     try {
-      const response = await fetch(API_URL + `/api/admin/pixels/${pixel.id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('admin_token')}` }
-      });
-      if (response.ok) {
-        if (type === 'facebook') setFbPixel('');
-        if (type === 'tiktok') setTtPixel('');
-        fetchPixels();
-      }
+      const { error } = await supabase
+        .from('pixels')
+        .delete()
+        .eq('id', pixel.id);
+
+      if (error) throw error;
+
+      if (type === 'facebook') setFbPixel('');
+      if (type === 'tiktok') setTtPixel('');
+      fetchPixels();
     } catch (err) {
       console.error('Error deleting pixel:', err);
     }
@@ -1996,13 +2072,12 @@ export const AdminClients: React.FC = () => {
   useEffect(() => {
     const fetchClients = async () => {
       try {
-        const response = await fetch(API_URL + '/api/admin/clients', {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('admin_token')}` }
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setClients(data);
-        }
+        const { data, error } = await supabase
+          .from('clients')
+          .select('*');
+        
+        if (error) throw error;
+        if (data) setClients(data);
       } catch (err) {
         console.error('Error fetching clients:', err);
       } finally {

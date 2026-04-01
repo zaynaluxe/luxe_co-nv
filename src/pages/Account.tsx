@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { User, ShoppingBag, LogOut, ChevronRight, Package, Clock, CheckCircle, Truck, Mail, Lock, Phone } from 'lucide-react';
-import { formatPrice, API_URL } from '../utils';
+import { supabase } from '../lib/supabase';
+import { formatPrice } from '../utils';
 import { toast } from 'sonner';
 
 interface Order {
@@ -42,24 +43,50 @@ const Account: React.FC = () => {
   });
 
   useEffect(() => {
-    if (isLoggedIn) {
-      setView('profile');
-      fetchProfile();
-      fetchOrders();
-    }
-  }, [isLoggedIn]);
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        setIsLoggedIn(true);
+        fetchProfile();
+        fetchOrders();
+      }
+    };
+    checkSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsLoggedIn(!!session);
+      if (session) {
+        fetchProfile();
+        fetchOrders();
+      } else {
+        setUser(null);
+        setOrders([]);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const fetchProfile = async () => {
     try {
-      const response = await fetch(API_URL + '/api/auth/me', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('user_token')}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setUser(data);
-      } else {
-        // If profile fetch fails, token might be invalid
-        handleLogout();
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser) {
+        // Fetch extra info from clients table if it exists
+        const { data: clientData } = await supabase
+          .from('clients')
+          .select('*')
+          .eq('email', authUser.email)
+          .maybeSingle();
+        
+        setUser({
+          id: authUser.id,
+          email: authUser.email || '',
+          nom: clientData?.nom || authUser.user_metadata?.nom || '',
+          prenom: clientData?.prenom || authUser.user_metadata?.prenom || '',
+          telephone: clientData?.telephone || authUser.user_metadata?.telephone || '',
+          adresse_defaut: clientData?.adresse_defaut || '',
+          ville_defaut: clientData?.ville_defaut || '',
+        });
       }
     } catch (err) {
       console.error('Error fetching profile:', err);
@@ -69,12 +96,25 @@ const Account: React.FC = () => {
   const fetchOrders = async () => {
     setLoading(true);
     try {
-      const response = await fetch(API_URL + '/api/orders/my-orders', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('user_token')}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setOrders(Array.isArray(data) ? data : []);
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return;
+
+      // First find the client record to get the client_id
+      const { data: clientData } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('email', authUser.email)
+        .maybeSingle();
+
+      if (clientData) {
+        const { data, error } = await supabase
+          .from('commandes')
+          .select('*')
+          .eq('client_id', clientData.id)
+          .order('date_commande', { ascending: false });
+        
+        if (error) throw error;
+        setOrders(data || []);
       }
     } catch (err) {
       console.error('Error fetching orders:', err);
@@ -87,20 +127,16 @@ const Account: React.FC = () => {
     e.preventDefault();
     setAuthLoading(true);
     try {
-      const response = await fetch(API_URL + '/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(loginForm)
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: loginForm.email,
+        password: loginForm.mot_de_passe,
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        localStorage.setItem('user_token', data.token);
+      if (error) {
+        toast.error(error.message || 'Erreur de connexion');
+      } else {
         setIsLoggedIn(true);
         toast.success('Connexion réussie');
-      } else {
-        toast.error(data.error || 'Erreur de connexion');
       }
     } catch (err) {
       toast.error('Une erreur est survenue');
@@ -113,20 +149,33 @@ const Account: React.FC = () => {
     e.preventDefault();
     setAuthLoading(true);
     try {
-      const response = await fetch(API_URL + '/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(registerForm)
+      const { data, error } = await supabase.auth.signUp({
+        email: registerForm.email,
+        password: registerForm.mot_de_passe,
+        options: {
+          data: {
+            nom: registerForm.nom,
+            prenom: registerForm.prenom,
+            telephone: registerForm.telephone,
+          }
+        }
       });
 
-      const data = await response.json();
+      if (error) {
+        toast.error(error.message || 'Erreur d\'inscription');
+      } else {
+        // Also create a record in the clients table for consistency with existing schema
+        await supabase.from('clients').insert([{
+          nom: registerForm.nom,
+          prenom: registerForm.prenom,
+          email: registerForm.email,
+          mot_de_passe: 'supabase-auth', // Placeholder since auth is handled by Supabase
+          telephone: registerForm.telephone
+        }]);
 
-      if (response.ok) {
-        toast.success('Inscription réussie ! Vous pouvez maintenant vous connecter.');
+        toast.success('Inscription réussie ! Veuillez vérifier votre email si nécessaire.');
         setView('login');
         setLoginForm({ ...loginForm, email: registerForm.email });
-      } else {
-        toast.error(data.error || 'Erreur d\'inscription');
       }
     } catch (err) {
       toast.error('Une erreur est survenue');
@@ -135,8 +184,8 @@ const Account: React.FC = () => {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('user_token');
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setIsLoggedIn(false);
     setUser(null);
     setView('login');
