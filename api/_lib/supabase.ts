@@ -4,11 +4,11 @@ let supabaseInstance: SupabaseClient | null = null;
 
 export const getSupabase = (): SupabaseClient => {
   if (!supabaseInstance) {
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
     if (!supabaseUrl || !supabaseAnonKey) {
-      throw new Error('SUPABASE_URL and SUPABASE_ANON_KEY are required in environment variables.');
+      throw new Error('SUPABASE_URL and SUPABASE_ANON_KEY (or VITE_ versions) are required in environment variables.');
     }
 
     supabaseInstance = createClient(supabaseUrl, supabaseAnonKey);

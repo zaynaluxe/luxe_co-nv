@@ -5,10 +5,18 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const { method, url } = req;
+  const { method, url, query } = req;
+  const cleanUrl = url?.split('?')[0] || '';
+  const urlParts = cleanUrl.split('/') || [];
+  
+  // Try to get ID from query (Vercel rewrite) or URL path
+  let id = query.id as string | undefined;
+  if (!id) {
+    id = urlParts[urlParts.length - 1] === 'auth' ? undefined : urlParts[urlParts.length - 1];
+  }
 
   if (method === 'POST') {
-    if (url?.includes('/login')) {
+    if (query.login === 'true' || url?.includes('/login')) {
       // POST /api/auth/login
       const { email, mot_de_passe } = req.body;
       try {

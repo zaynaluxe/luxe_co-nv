@@ -4,10 +4,18 @@ import { authenticateToken } from './_lib/auth.ts';
 import https from "https";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const { method, url } = req;
+  const { method, url, query } = req;
+  const cleanUrl = url?.split('?')[0] || '';
+  const urlParts = cleanUrl.split('/') || [];
+  
+  // Try to get ID from query (Vercel rewrite) or URL path
+  let id = query.id as string | undefined;
+  if (!id) {
+    id = urlParts[urlParts.length - 1] === 'orders' ? undefined : urlParts[urlParts.length - 1];
+  }
 
   if (method === 'POST') {
-    if (url?.includes('/quick')) {
+    if (query.quick === 'true' || url?.includes('/quick')) {
       // POST /api/orders/quick
       const { produit_id, variante_id, quantite, nom, prenom, telephone, ville, adresse } = req.body;
       try {

@@ -1,12 +1,16 @@
 {
   "rewrites": [
-    { "source": "/api/products/:id*", "destination": "/api/products" },
-    { "source": "/api/categories/:id*", "destination": "/api/categories" },
-    { "source": "/api/orders/:id*", "destination": "/api/orders" },
-    { "source": "/api/auth/:id*", "destination": "/api/auth" },
-    { "source": "/api/admin/:id*", "destination": "/api/admin" },
-    { "source": "/api/promotions/:id*", "destination": "/api/promotions" },
-    { "source": "/api/pixels/:id*", "destination": "/api/pixels" },
+    { "source": "/api/products/:id*", "destination": "/api/products?id=:id*" },
+    { "source": "/api/categories/:id*", "destination": "/api/categories?id=:id*" },
+    { "source": "/api/orders/quick", "destination": "/api/orders?quick=true" },
+    { "source": "/api/orders/:id*", "destination": "/api/orders?id=:id*" },
+    { "source": "/api/auth/login", "destination": "/api/auth?login=true" },
+    { "source": "/api/auth/register", "destination": "/api/auth?register=true" },
+    { "source": "/api/auth/:id*", "destination": "/api/auth?id=:id*" },
+    { "source": "/api/admin/setup", "destination": "/api/admin?resource=setup" },
+    { "source": "/api/admin/:resource/:id*", "destination": "/api/admin?resource=:resource&id=:id*" },
+    { "source": "/api/promotions/:id*", "destination": "/api/promotions?id=:id*" },
+    { "source": "/api/pixels/:id*", "destination": "/api/pixels?id=:id*" },
     { "source": "/api/health", "destination": "/api/health" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]

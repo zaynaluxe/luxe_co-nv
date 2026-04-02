@@ -3,10 +3,15 @@ import { supabase } from './_lib/supabase.ts';
 import { authenticateToken } from './_lib/auth.ts';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const { method, url } = req;
+  const { method, url, query } = req;
   const cleanUrl = url?.split('?')[0] || '';
   const urlParts = cleanUrl.split('/') || [];
-  const id = urlParts[urlParts.length - 1] === 'promotions' ? null : urlParts[urlParts.length - 1];
+  
+  // Try to get ID from query (Vercel rewrite) or URL path
+  let id = query.id as string | undefined;
+  if (!id) {
+    id = urlParts[urlParts.length - 1] === 'promotions' ? undefined : urlParts[urlParts.length - 1];
+  }
 
   if (method === 'GET') {
     if (!id) {

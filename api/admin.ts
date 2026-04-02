@@ -4,11 +4,16 @@ import { authenticateToken, cloudinary } from './_lib/auth.ts';
 import bcrypt from "bcryptjs";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const { method, url } = req;
+  const { method, url, query } = req;
   const cleanUrl = url?.split('?')[0] || '';
   const urlParts = cleanUrl.split('/') || [];
-  const resource = urlParts[3]; // /api/admin/RESOURCE
-  const id = urlParts[4]; // /api/admin/RESOURCE/ID
+  
+  // Try to get resource and ID from query (Vercel rewrite) or URL path
+  const resource = query.resource as string || urlParts[3];
+  let id = query.id as string | undefined;
+  if (!id) {
+    id = urlParts[4];
+  }
 
   if (resource === 'setup') {
     // POST /api/admin/setup
