@@ -18,8 +18,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const isMatch = await bcrypt.compare(mot_de_passe, user.mot_de_passe);
         if (!isMatch) return res.status(401).json({ error: 'Email ou mot de passe incorrect.' });
 
-        const token = jwt.sign({ id: user.id, email: user.email, role: user.role || 'client' }, process.env.JWT_SECRET || "fallback_secret", { expiresIn: '7d' });
-        return res.status(200).json({ token, user: { id: user.id, email: user.email, nom: user.nom, prenom: user.prenom, role: user.role || 'client' } });
+        const token = jwt.sign(
+          { id: user.id, email: user.email, role: user.role || 'client' }, 
+          process.env.JWT_SECRET || "default_secret", 
+          { expiresIn: '7d' }
+        );
+        return res.status(200).json({ 
+          token, 
+          user: { id: user.id, email: user.email, nom: user.nom, prenom: user.prenom, role: user.role || 'client' } 
+        });
       } catch (err) {
         console.error(err);
         return res.status(500).json({ error: 'Erreur lors de la connexion.' });
@@ -38,8 +45,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (error) throw error;
 
-        const token = jwt.sign({ id: user.id, email: user.email, role: 'client' }, process.env.JWT_SECRET || "fallback_secret", { expiresIn: '7d' });
-        return res.status(201).json({ token, user: { id: user.id, email: user.email, nom: user.nom, prenom: user.prenom, role: 'client' } });
+        const token = jwt.sign(
+          { id: user.id, email: user.email, role: 'client' }, 
+          process.env.JWT_SECRET || "default_secret", 
+          { expiresIn: '7d' }
+        );
+        return res.status(201).json({ 
+          token, 
+          user: { id: user.id, email: user.email, nom: user.nom, prenom: user.prenom, role: 'client' } 
+        });
       } catch (err) {
         console.error(err);
         return res.status(500).json({ error: 'Erreur lors de l\'inscription.' });

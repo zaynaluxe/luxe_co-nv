@@ -123,32 +123,25 @@ export const AdminLogin: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
     setError('');
     setLoading(true);
     try {
-      const { data: client, error: fetchError } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('email', email)
-        .single();
+      const response = await apiFetch(API_URL + '/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, mot_de_passe: password })
+      });
 
-      console.log('Client trouvé:', client ? 'oui' : 'non');
+      const data = await response.json();
 
-      if (fetchError || !client) {
-        setError('Email ou mot de passe incorrect.');
-        return;
+      if (response.ok) {
+        localStorage.setItem('admin_token', data.token);
+        localStorage.setItem('admin_user', JSON.stringify(data.user));
+        onLogin();
+        toast.success('Connexion réussie');
+      } else {
+        setError(data.error || 'Email ou mot de passe incorrect.');
       }
-
-      const isMatch = await bcrypt.compare(password, client.mot_de_passe);
-      if (!isMatch) {
-        setError('Email ou mot de passe incorrect.');
-        return;
-      }
-
-      localStorage.setItem('admin_token', 'direct-supabase-session');
-      localStorage.setItem('admin_user', JSON.stringify({ id: client.id, email: client.email, role: 'admin' }));
-      onLogin();
-      toast.success('Connexion réussie');
     } catch (err) {
       console.error('Login error:', err);
-      setError('Erreur de connexion');
+      setError('Erreur de connexion au serveur.');
     } finally {
       setLoading(false);
     }
@@ -617,19 +610,17 @@ export const AdminProducts: React.FC = () => {
       
       const base64 = await base64Promise;
       
-      const cloudinaryFormData = new FormData();
-      cloudinaryFormData.append('file', base64);
-      cloudinaryFormData.append('upload_preset', import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'luxe_co_preset');
-      cloudinaryFormData.append('cloud_name', import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dznwuewea');
-
-      const response = await fetch(`https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dznwuewea'}/image/upload`, {
+      const response = await apiFetch(API_URL + '/api/upload', {
         method: 'POST',
-        body: cloudinaryFormData
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+        },
+        body: JSON.stringify({ image_base64: base64 })
       });
 
       if (response.ok) {
-        const data = await response.json();
-        const url = data.secure_url;
+        const { url } = await response.json();
         setFormData(prev => ({
           ...prev,
           sections: prev.sections.map((section, i) => 
@@ -711,28 +702,29 @@ export const AdminProducts: React.FC = () => {
       return;
     }
 
-    const payload = {
-      ...formData,
-      slug: formData.slug || formData.nom.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '')
-    };
-
+    setUploading(true);
     try {
-      let error;
-      if (editingProduct) {
-        const { error: updateError } = await supabase
-          .from('produits')
-          .update(payload)
-          .eq('id', editingProduct.id);
-        error = updateError;
-      } else {
-        const { error: insertError } = await supabase
-          .from('produits')
-          .insert([payload]);
-        error = insertError;
+      const method = editingProduct ? 'PUT' : 'POST';
+      const url = editingProduct ? `${API_URL}/api/products/${editingProduct.id}` : `${API_URL}/api/products`;
+      
+      const response = await apiFetch(url, {
+        method,
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+        },
+        body: JSON.stringify({
+          ...formData,
+          slug: formData.slug || formData.nom.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '')
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erreur lors de l\'enregistrement');
       }
 
-      if (error) throw error;
-
+      toast.success(editingProduct ? 'Produit mis à jour' : 'Produit créé');
       setShowModal(false);
       setEditingProduct(null);
       setFormData({
@@ -749,9 +741,11 @@ export const AdminProducts: React.FC = () => {
         variantes: []
       });
       fetchProducts();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error saving product:', err);
-      toast.error('Erreur lors de l\'enregistrement du produit');
+      toast.error(err.message || 'Erreur lors de l\'enregistrement du produit');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -1002,7 +996,7 @@ export const AdminProducts: React.FC = () => {
                     <div>
                       <label className="block text-xs uppercase tracking-widest text-gray-400 mb-2">Catégorie</label>
                       <select 
-                        value={formData.categorie_id}
+                        value={formData.categorie_id || ''}
                         onChange={e => setFormData({...formData, categorie_id: Number(e.target.value)})}
                         className="w-full bg-black border border-gray-800 p-3 text-white focus:border-[#C9A227] outline-none"
                         required
@@ -1264,7 +1258,7 @@ export const AdminProducts: React.FC = () => {
                                 <div>
                                   <label className="block text-[8px] uppercase text-gray-500 mb-1">Position Image</label>
                                   <select 
-                                    value={section.content.layout}
+                                    value={section.content.layout || 'left'}
                                     onChange={e => updateSectionContent(index, 'layout', e.target.value)}
                                     className="w-full bg-black border border-gray-800 p-2 text-xs text-white focus:border-[#C9A227] outline-none"
                                   >
@@ -1595,7 +1589,7 @@ export const AdminPromos: React.FC = () => {
                 <div>
                   <label className="block text-xs uppercase tracking-widest text-gray-400 mb-2">Type de remise</label>
                   <select 
-                    value={formData.type_remise}
+                    value={formData.type_remise || 'pourcentage'}
                     onChange={e => setFormData({...formData, type_remise: e.target.value as any})}
                     className="w-full bg-black border border-gray-800 p-3 text-white focus:border-[#C9A227] outline-none"
                   >
@@ -1770,7 +1764,7 @@ export const AdminOrders: React.FC = () => {
                 <td className="p-4 text-xs text-gray-500 uppercase">{new Date(o.date_commande).toLocaleDateString()}</td>
                 <td className="p-4">
                   <select 
-                    value={o.statut}
+                    value={o.statut || ''}
                     onChange={(e) => updateStatus(o.id, e.target.value)}
                     className={`text-[10px] uppercase px-2 py-1 rounded bg-black border-none outline-none ${statusColors[o.statut]}`}
                   >
@@ -1861,7 +1855,7 @@ export const AdminOrders: React.FC = () => {
                 <section>
                   <h4 className="text-[10px] uppercase tracking-[0.2em] text-gray-500 mb-4">Statut de la commande</h4>
                   <select 
-                    value={selectedOrder.statut}
+                    value={selectedOrder.statut || ''}
                     onChange={(e) => updateStatus(selectedOrder.id, e.target.value)}
                     className={`w-full p-3 rounded bg-black border border-white/10 text-sm uppercase tracking-widest ${statusColors[selectedOrder.statut]}`}
                   >

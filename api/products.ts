@@ -105,7 +105,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const user = authenticateToken(req);
     if (!user) return res.status(401).json({ error: 'Accès non autorisé.' });
 
-    const { nom, slug, description, prix_base, categorie_id, images_base64, images_urls: existing_urls, sections, texte_alignement, variantes } = req.body;
+    const { nom, slug, description, prix_base, categorie_id, images_base64, images_urls: existing_urls, sections, texte_alignement, variantes, est_actif, est_en_vedette } = req.body;
     
     try {
       let images_urls: string[] = Array.isArray(existing_urls) ? existing_urls : [];
@@ -129,7 +129,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           image_principale_url, 
           images_urls, 
           sections: sections || [], 
-          texte_alignement: texte_alignement || 'left'
+          texte_alignement: texte_alignement || 'left',
+          est_actif: est_actif !== undefined ? est_actif : true,
+          est_en_vedette: est_en_vedette !== undefined ? est_en_vedette : false
         }])
         .select()
         .single();

@@ -214,7 +214,7 @@ const Checkout: React.FC = () => {
                         <div className="col-span-2">
                           <label className="block text-[10px] uppercase tracking-widest text-gray-500 mb-3">Ville</label>
                           <select 
-                            value={formData.ville}
+                            value={formData.ville || ''}
                             onChange={(e) => setFormData({...formData, ville: e.target.value})}
                             className="w-full bg-black border border-white/10 p-4 text-xs uppercase tracking-widest focus:border-[#C9A227] outline-none transition-colors"
                           >

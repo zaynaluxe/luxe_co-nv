@@ -62,11 +62,13 @@ const Catalog: React.FC = () => {
         setProducts(flattenedProducts);
 
         if (categoriesRes.data) {
-          const categoryOrder = ["Nouveautés", "Bijoux", "Montres", "Hijabs", "Accessoires"];
           const sorted = categoriesRes.data
-            .filter((c: any) => categoryOrder.includes(c.nom))
-            .sort((a: any, b: any) => categoryOrder.indexOf(a.nom) - categoryOrder.indexOf(b.nom))
-            .map((c: any) => c.nom);
+            .map((c: any) => c.nom)
+            .sort((a: string, b: string) => {
+              if (a === "Nouveautés") return -1;
+              if (b === "Nouveautés") return 1;
+              return a.localeCompare(b);
+            });
           setCategories(sorted);
         }
       } catch (err) {
@@ -151,7 +153,7 @@ const Catalog: React.FC = () => {
         <div className="relative flex items-center gap-4 w-full md:w-auto">
           <span className="text-[10px] uppercase tracking-widest text-gray-500 whitespace-nowrap">Trier par:</span>
           <select 
-            value={sortBy}
+            value={sortBy || 'newest'}
             onChange={(e) => setSortBy(e.target.value as any)}
             className="bg-black border border-white/10 p-4 text-xs uppercase tracking-widest focus:border-[#C9A227] outline-none transition-colors w-full md:w-48 appearance-none"
           >

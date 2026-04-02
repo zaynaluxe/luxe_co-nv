@@ -9,6 +9,7 @@ import categoriesHandler from "./api/categories.ts";
 import ordersHandler from "./api/orders.ts";
 import authHandler from "./api/auth.ts";
 import adminHandler from "./api/admin.ts";
+import uploadHandler from "./api/upload.ts";
 import promotionsHandler from "./api/promotions.ts";
 import pixelsHandler from "./api/pixels.ts";
 import healthHandler from "./api/health.ts";
@@ -22,15 +23,15 @@ const PORT = 3000;
 app.use(express.json({ limit: '50mb' }));
 
 // API Routes mapping
-app.all("/api/products*", (req, res) => productsHandler(req as any, res as any));
-app.all("/api/categories*", (req, res) => categoriesHandler(req as any, res as any));
-app.all("/api/orders*", (req, res) => ordersHandler(req as any, res as any));
-app.all("/api/auth*", (req, res) => authHandler(req as any, res as any));
-app.all("/api/admin*", (req, res) => adminHandler(req as any, res as any));
-app.all("/api/promotions*", (req, res) => promotionsHandler(req as any, res as any));
-app.all("/api/pixels*", (req, res) => pixelsHandler(req as any, res as any));
-app.all("/api/health*", (req, res) => healthHandler(req as any, res as any));
-app.all("/api/upload*", (req, res) => adminHandler(req as any, res as any));
+app.use("/api/products", (req, res) => productsHandler(req as any, res as any));
+app.use("/api/categories", (req, res) => categoriesHandler(req as any, res as any));
+app.use("/api/orders", (req, res) => ordersHandler(req as any, res as any));
+app.use("/api/auth", (req, res) => authHandler(req as any, res as any));
+app.use("/api/admin", (req, res) => adminHandler(req as any, res as any));
+app.use("/api/promotions", (req, res) => promotionsHandler(req as any, res as any));
+app.use("/api/pixels", (req, res) => pixelsHandler(req as any, res as any));
+app.use("/api/health", (req, res) => healthHandler(req as any, res as any));
+app.use("/api/upload", (req, res) => uploadHandler(req as any, res as any));
 
 // API 404 handler to prevent falling through to Vite for non-existent API routes
 app.use("/api", (req, res) => {

@@ -16,22 +16,18 @@ const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith('/admin');
 
-  const categoryOrder = ["Nouveautés", "Bijoux", "Montres", "Hijabs", "Accessoires"];
-
   React.useEffect(() => {
     const fetchCategories = async () => {
       try {
         const { data, error } = await supabase
           .from('categories')
-          .select('nom, slug');
+          .select('nom, slug')
+          .order('nom');
 
         if (error) throw error;
 
         if (Array.isArray(data)) {
-          const filteredAndSorted = data
-            .filter(cat => categoryOrder.includes(cat.nom))
-            .sort((a, b) => categoryOrder.indexOf(a.nom) - categoryOrder.indexOf(b.nom));
-          setCategories(filteredAndSorted);
+          setCategories(data);
         }
       } catch (err) {
         console.error('Error fetching categories:', err);
