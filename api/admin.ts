@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabase } from './_lib/supabase';
-import { authenticateToken, cloudinary } from './_lib/auth';
+import { supabase } from './_lib/supabase.js';
+import { authenticateToken, cloudinary } from './_lib/auth.js';
 import bcrypt from "bcryptjs";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -26,7 +26,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { data: existingAdmin } = await supabase.from('clients').select('id').eq('email', email).maybeSingle();
       if (existingAdmin) return res.status(400).json({ error: 'Un utilisateur avec cet email existe déjà.' });
 
-      const hashedPassword = await bcrypt.hash(mot_de_passe, 10);
+      const hashedPassword = (bcrypt as any).default ? await (bcrypt as any).default.hash(mot_de_passe, 10) : await bcrypt.hash(mot_de_passe, 10);
       const { data: admin, error } = await supabase.from('clients').insert([{
         email, mot_de_passe: hashedPassword, nom: nom || 'Admin', prenom: prenom || 'Luxe', role: 'admin'
       }]).select().single();

@@ -8,6 +8,7 @@ export const getSupabase = (): SupabaseClient => {
     const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
     if (!supabaseUrl || !supabaseAnonKey) {
+      console.error('CRITICAL: SUPABASE_URL or SUPABASE_ANON_KEY is missing from environment variables.');
       throw new Error('SUPABASE_URL and SUPABASE_ANON_KEY (or VITE_ versions) are required in environment variables.');
     }
 

@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabase } from './_lib/supabase';
-import { authenticateToken } from './_lib/auth';
+import { supabase } from './_lib/supabase.js';
+import { authenticateToken } from './_lib/auth.js';
 import https from "https";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

@@ -1,4 +1,4 @@
-import jwt from 'jsonwebtoken';
+import * as jwt from 'jsonwebtoken';
 import { v2 as cloudinary } from 'cloudinary';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
@@ -14,14 +14,14 @@ export { cloudinary };
 
 export const verifyToken = (token: string) => {
   try {
-    return jwt.verify(token, JWT_SECRET);
+    return (jwt as any).default ? (jwt as any).default.verify(token, JWT_SECRET) : jwt.verify(token, JWT_SECRET);
   } catch (err) {
     return null;
   }
 };
 
 export const generateToken = (payload: any) => {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+  return (jwt as any).default ? (jwt as any).default.sign(payload, JWT_SECRET, { expiresIn: '7d' }) : jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
 };
 
 export const isAdmin = (user: any) => {

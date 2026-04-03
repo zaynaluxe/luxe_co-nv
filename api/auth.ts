@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabase } from './_lib/supabase';
-import { authenticateToken } from './_lib/auth';
+import { supabase } from './_lib/supabase.js';
+import { authenticateToken } from './_lib/auth.js';
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
+import * as jwt from "jsonwebtoken";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { method, url, query } = req;
@@ -30,10 +30,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         if (!user) return res.status(401).json({ error: 'Email ou mot de passe incorrect.' });
 
-        const isMatch = await bcrypt.compare(mot_de_passe, user.mot_de_passe);
+        const isMatch = (bcrypt as any).default ? await (bcrypt as any).default.compare(mot_de_passe, user.mot_de_passe) : await bcrypt.compare(mot_de_passe, user.mot_de_passe);
         if (!isMatch) return res.status(401).json({ error: 'Email ou mot de passe incorrect.' });
 
-        const token = jwt.sign(
+        const token = (jwt as any).default ? (jwt as any).default.sign(
+          { id: user.id, email: user.email, role: user.role || 'client' }, 
+          process.env.JWT_SECRET || "default_secret", 
+          { expiresIn: '7d' }
+        ) : jwt.sign(
           { id: user.id, email: user.email, role: user.role || 'client' }, 
           process.env.JWT_SECRET || "default_secret", 
           { expiresIn: '7d' }
@@ -53,14 +57,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { data: existingUser } = await supabase.from('clients').select('id').eq('email', email).maybeSingle();
         if (existingUser) return res.status(400).json({ error: 'Cet email est déjà utilisé.' });
 
-        const hashedPassword = await bcrypt.hash(mot_de_passe, 10);
+        const hashedPassword = (bcrypt as any).default ? await (bcrypt as any).default.hash(mot_de_passe, 10) : await bcrypt.hash(mot_de_passe, 10);
         const { data: user, error } = await supabase.from('clients').insert([{
           email, mot_de_passe: hashedPassword, nom, prenom, telephone, ville_defaut: ville, adresse_defaut: adresse
         }]).select().single();
 
         if (error) throw error;
 
-        const token = jwt.sign(
+        const token = (jwt as any).default ? (jwt as any).default.sign(
+          { id: user.id, email: user.email, role: 'client' }, 
+          process.env.JWT_SECRET || "default_secret", 
+          { expiresIn: '7d' }
+        ) : jwt.sign(
           { id: user.id, email: user.email, role: 'client' }, 
           process.env.JWT_SECRET || "default_secret", 
           { expiresIn: '7d' }
