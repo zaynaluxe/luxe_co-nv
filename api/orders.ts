@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabase } from './_lib/supabase.ts';
-import { authenticateToken } from './_lib/auth.ts';
+import { supabase } from './_lib/supabase';
+import { authenticateToken } from './_lib/auth';
 import https from "https";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -19,6 +19,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // POST /api/orders/quick
       const { produit_id, variante_id, quantite, nom, prenom, telephone, ville, adresse } = req.body;
       try {
+        // 1. Get or create client
+        let clientId = null;
+        const email = `${telephone}@luxeandco.com`; // Fallback for quick order
+        const { data: existingClient } = await supabase
+          .from('clients')
+          .select('id')
+          .eq('email', email)
+          .maybeSingle();
+
+        if (existingClient) {
+          clientId = existingClient.id;
+        } else {
+          const { data: newClient, error: clientError } = await supabase
+            .from('clients')
+            .insert([{
+              nom: nom || 'Client',
+              prenom: prenom || 'Rapide',
+              email: email,
+              telephone: telephone,
+              adresse_defaut: adresse || ville,
+              ville_defaut: ville,
+              mot_de_passe: 'quick-order'
+            }])
+            .select()
+            .single();
+          
+          if (clientError) {
+            console.error('Error creating quick client:', clientError);
+            // Continue anyway if client creation fails, but maybe log it
+          } else {
+            clientId = newClient.id;
+          }
+        }
+
         let prix_unitaire = 0;
         if (variante_id) {
           const { data: varRes } = await supabase.from('variantes_produits').select('prix_supplementaire, produits(prix_base)').eq('id', variante_id).single();
@@ -35,8 +69,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const numero_commande = `QC-${Date.now().toString().slice(-6)}`;
 
         const { data: orderRes, error: orderError } = await supabase.from('commandes').insert([{
-          numero_commande, total_ht: total_ttc, total_ttc, frais_livraison: 0,
-          adresse_livraison: adresse, ville_livraison: ville, telephone_contact: telephone
+          client_id: clientId,
+          numero_commande, 
+          total_ht: total_ttc, 
+          total_ttc, 
+          frais_livraison: 0,
+          adresse_livraison: adresse || ville, 
+          ville_livraison: ville, 
+          telephone_contact: telephone,
+          statut: 'en_attente'
         }]).select().single();
 
         if (orderError) throw orderError;
@@ -57,7 +98,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(201).json({ message: "Commande créée avec succès", numero_commande });
       } catch (err) {
-        console.error(err);
+        console.error('Quick order handler error:', err);
         return res.status(500).json({ error: "Erreur lors de la création de la commande." });
       }
     } else {

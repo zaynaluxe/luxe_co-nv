@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { ShoppingBag, Heart, Share2, Star, ChevronRight, ChevronLeft, ShieldCheck, Truck, RotateCcw, User, Phone, MapPin } from 'lucide-react';
 import { useCart } from '../context/CartContext';
-import { formatPrice } from '../utils';
+import { formatPrice, API_URL, apiFetch } from '../utils';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
 
@@ -118,39 +118,32 @@ const QuickOrderForm: React.FC<{
 
     setSubmitting(true);
     try {
-      const prix_unitaire = product.prix_base + (selectedVariante?.prix_supp || 0);
-      const total_ttc = prix_unitaire * quantity;
-      const numero_commande = `QC-${Date.now().toString().slice(-6)}`;
+      const response = await apiFetch(API_URL + '/api/orders/quick', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          produit_id: product.id,
+          variante_id: selectedVariante?.id || null,
+          quantite: quantity,
+          nom: formData.nom_complet.split(' ').slice(1).join(' ') || '',
+          prenom: formData.nom_complet.split(' ')[0] || '',
+          telephone: formData.telephone,
+          ville: formData.ville,
+          adresse: formData.ville // Using ville as adresse for quick order
+        })
+      });
 
-      const { data: orderRes, error: orderError } = await supabase.from('commandes').insert([{
-        numero_commande,
-        total_ht: total_ttc,
-        total_ttc,
-        frais_livraison: 0,
-        adresse_livraison: formData.ville, // Using ville as adresse for quick order
-        ville_livraison: formData.ville,
-        telephone_contact: formData.telephone,
-        client_display_name: formData.nom_complet,
-        client_display_phone: formData.telephone,
-        statut: 'en_attente'
-      }]).select().single();
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erreur lors de l\'envoi de la commande');
+      }
 
-      if (orderError) throw orderError;
-
-      const { error: lineError } = await supabase.from('lignes_commande').insert([{
-        commande_id: orderRes.id,
-        produit_id: product.id,
-        variante_id: selectedVariante?.id || null,
-        quantite: quantity,
-        prix_unitaire,
-        produit_nom: product.nom,
-        couleur: selectedVariante?.couleur || 'Standard'
-      }]);
-
-      if (lineError) throw lineError;
+      const orderRes = await response.json();
 
       // Facebook Pixel Purchase Event
       if (typeof window !== 'undefined' && (window as any).fbq) {
+        const prix_unitaire = product.prix_base + (selectedVariante?.prix_supp || 0);
+        const total_ttc = prix_unitaire * quantity;
         (window as any).fbq('track', 'Purchase', {
           content_name: product.nom,
           content_category: product.categorie,
@@ -166,9 +159,9 @@ const QuickOrderForm: React.FC<{
       toast.success('Commande envoyée avec succès ! Notre équipe vous contactera sous peu.');
       setFormData({ nom_complet: '', telephone: '', ville: '' });
       setQuantity(1);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error submitting quick order:', err);
-      toast.error('Erreur lors de l\'envoi de la commande');
+      toast.error(err.message || 'Erreur lors de l\'envoi de la commande');
     } finally {
       setSubmitting(false);
     }

@@ -24,11 +24,17 @@ interface AdminStats {
 interface AdminOrder {
   id: number;
   numero_commande: string;
-  client_display_name: string;
-  client_display_phone: string;
+  client_display_name?: string;
+  client_display_phone?: string;
   total_ttc: number;
   statut: 'en_attente' | 'payee' | 'expediee' | 'livree' | 'annulee';
   date_commande: string;
+  telephone_contact?: string;
+  clients?: {
+    nom: string;
+    prenom: string;
+    telephone: string;
+  };
 }
 
 interface OrderDetail extends AdminOrder {
@@ -102,17 +108,27 @@ export const AdminLogin: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
   const [setupLoading, setSetupLoading] = useState(false);
 
   const handleSetup = async () => {
+    if (!email || !password) {
+      toast.error('Veuillez remplir l\'email et le mot de passe pour la configuration');
+      return;
+    }
     setSetupLoading(true);
     try {
-      const response = await apiFetch(API_URL + '/api/admin/setup', { method: 'POST' });
+      const response = await apiFetch(API_URL + '/api/admin/setup', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, mot_de_passe: password, nom: 'Admin', prenom: 'Luxe' })
+      });
+      
       const data = await response.json();
       if (response.ok) {
-        toast.success(data.message);
+        toast.success('Administrateur configuré avec succès');
       } else {
         toast.error(data.error || 'Erreur lors de la configuration');
       }
     } catch (err) {
-      toast.error('Erreur serveur');
+      console.error('Setup error:', err);
+      toast.error('Erreur serveur lors de la configuration');
     } finally {
       setSetupLoading(false);
     }
@@ -129,7 +145,15 @@ export const AdminLogin: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
         body: JSON.stringify({ email, mot_de_passe: password })
       });
 
-      const data = await response.json();
+      let data;
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.indexOf("application/json") !== -1) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        console.error('Non-JSON response:', text);
+        throw new Error('Le serveur a retourné une réponse invalide (non-JSON).');
+      }
 
       if (response.ok) {
         localStorage.setItem('admin_token', data.token);
@@ -139,9 +163,9 @@ export const AdminLogin: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
       } else {
         setError(data.error || 'Email ou mot de passe incorrect.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Login error:', err);
-      setError('Erreur de connexion au serveur.');
+      setError(err.message || 'Erreur de connexion au serveur.');
     } finally {
       setLoading(false);
     }
@@ -1653,6 +1677,11 @@ export const AdminOrders: React.FC = () => {
         .from('commandes')
         .select(`
           *,
+          clients (
+            nom,
+            prenom,
+            telephone
+          ),
           lignes_commande (
             *,
             variantes_produits (
@@ -1757,8 +1786,12 @@ export const AdminOrders: React.FC = () => {
               <tr key={o.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                 <td className="p-4 text-sm font-mono text-[#C9A227]">{o.numero_commande}</td>
                 <td className="p-4">
-                  <p className="text-sm font-medium">{o.client_display_name}</p>
-                  <p className="text-[10px] text-gray-500 font-mono">{o.client_display_phone}</p>
+                  <p className="text-sm font-medium">
+                    {o.clients ? `${o.clients.prenom} ${o.clients.nom}` : (o.client_display_name || 'Client Rapide')}
+                  </p>
+                  <p className="text-[10px] text-gray-500 font-mono">
+                    {o.clients?.telephone || o.client_display_phone || o.telephone_contact || 'N/A'}
+                  </p>
                 </td>
                 <td className="p-4 text-sm font-mono">{formatPrice(o.total_ttc)}</td>
                 <td className="p-4 text-xs text-gray-500 uppercase">{new Date(o.date_commande).toLocaleDateString()}</td>

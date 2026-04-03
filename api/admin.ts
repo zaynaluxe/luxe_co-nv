@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabase } from './_lib/supabase.ts';
-import { authenticateToken, cloudinary } from './_lib/auth.ts';
+import { supabase } from './_lib/supabase';
+import { authenticateToken, cloudinary } from './_lib/auth';
 import bcrypt from "bcryptjs";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -19,19 +19,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // POST /api/admin/setup
     if (method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
     const { email, mot_de_passe, nom, prenom } = req.body;
+    if (!email || !mot_de_passe) {
+      return res.status(400).json({ error: 'Email et mot de passe requis pour le setup.' });
+    }
     try {
       const { data: existingAdmin } = await supabase.from('clients').select('id').eq('email', email).maybeSingle();
-      if (existingAdmin) return res.status(400).json({ error: 'Un administrateur existe déjà.' });
+      if (existingAdmin) return res.status(400).json({ error: 'Un utilisateur avec cet email existe déjà.' });
 
       const hashedPassword = await bcrypt.hash(mot_de_passe, 10);
       const { data: admin, error } = await supabase.from('clients').insert([{
-        email, mot_de_passe: hashedPassword, nom, prenom
+        email, mot_de_passe: hashedPassword, nom: nom || 'Admin', prenom: prenom || 'Luxe', role: 'admin'
       }]).select().single();
 
-      if (error) throw error;
-      return res.status(201).json(admin);
+      if (error) {
+        console.error('Supabase error during setup:', error);
+        throw error;
+      }
+      return res.status(201).json({ message: 'Administrateur créé avec succès', user: admin });
     } catch (err) {
-      console.error(err);
+      console.error('Setup handler error:', err);
       return res.status(500).json({ error: 'Erreur lors de la configuration de l\'admin.' });
     }
   }

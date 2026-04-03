@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabase } from './_lib/supabase.ts';
-import { authenticateToken } from './_lib/auth.ts';
+import { supabase } from './_lib/supabase';
+import { authenticateToken } from './_lib/auth';
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
@@ -19,9 +19,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (query.login === 'true' || url?.includes('/login')) {
       // POST /api/auth/login
       const { email, mot_de_passe } = req.body;
+      if (!email || !mot_de_passe) {
+        return res.status(400).json({ error: 'Email et mot de passe requis.' });
+      }
       try {
         const { data: user, error } = await supabase.from('clients').select('*').eq('email', email).maybeSingle();
-        if (error || !user) return res.status(401).json({ error: 'Email ou mot de passe incorrect.' });
+        if (error) {
+          console.error('Supabase error during login:', error);
+          return res.status(500).json({ error: 'Erreur de base de données.' });
+        }
+        if (!user) return res.status(401).json({ error: 'Email ou mot de passe incorrect.' });
 
         const isMatch = await bcrypt.compare(mot_de_passe, user.mot_de_passe);
         if (!isMatch) return res.status(401).json({ error: 'Email ou mot de passe incorrect.' });
@@ -36,8 +43,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           user: { id: user.id, email: user.email, nom: user.nom, prenom: user.prenom, role: user.role || 'client' } 
         });
       } catch (err) {
-        console.error(err);
-        return res.status(500).json({ error: 'Erreur lors de la connexion.' });
+        console.error('Login handler error:', err);
+        return res.status(500).json({ error: 'Erreur interne lors de la connexion.' });
       }
     } else if (url?.includes('/register')) {
       // POST /api/auth/register

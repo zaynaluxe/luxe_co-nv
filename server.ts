@@ -4,15 +4,15 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 // Import handlers
-import productsHandler from "./api/products.ts";
-import categoriesHandler from "./api/categories.ts";
-import ordersHandler from "./api/orders.ts";
-import authHandler from "./api/auth.ts";
-import adminHandler from "./api/admin.ts";
-import uploadHandler from "./api/upload.ts";
-import promotionsHandler from "./api/promotions.ts";
-import pixelsHandler from "./api/pixels.ts";
-import healthHandler from "./api/health.ts";
+import productsHandler from "./api/products";
+import categoriesHandler from "./api/categories";
+import ordersHandler from "./api/orders";
+import authHandler from "./api/auth";
+import adminHandler from "./api/admin";
+import uploadHandler from "./api/upload";
+import promotionsHandler from "./api/promotions";
+import pixelsHandler from "./api/pixels";
+import healthHandler from "./api/health";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
