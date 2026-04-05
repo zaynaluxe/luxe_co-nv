@@ -1,6 +1,28 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabase } from './_lib/supabase.ts';
-import { authenticateToken } from './_lib/auth.ts';
+import { createClient } from '@supabase/supabase-js';
+import * as jwt from 'jsonwebtoken';
+
+const supabase = createClient(
+  process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
+  process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
+);
+
+const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';
+
+const verifyToken = (token: string) => {
+  try {
+    return (jwt as any).default ? (jwt as any).default.verify(token, JWT_SECRET) : jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    return null;
+  }
+};
+
+const authenticateToken = (req: VercelRequest) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return null;
+  return verifyToken(token);
+};
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { method, url, query } = req;
