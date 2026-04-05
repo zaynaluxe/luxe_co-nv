@@ -7,6 +7,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Ensure we always return JSON
   res.setHeader('Content-Type', 'application/json');
 
+  // Check env vars for debugging
+  if (!process.env.SUPABASE_URL && !process.env.VITE_SUPABASE_URL) {
+    console.error('API Auth Error: SUPABASE_URL is missing');
+  }
+
   const { method, url, query } = req;
   const cleanUrl = url?.split('?')[0] || '';
   const urlParts = cleanUrl.split('/') || [];

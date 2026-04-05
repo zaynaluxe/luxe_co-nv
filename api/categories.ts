@@ -5,6 +5,14 @@ import { authenticateToken } from './_lib/auth.ts';
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { method } = req;
 
+  // Check env vars for debugging
+  if (!process.env.SUPABASE_URL && !process.env.VITE_SUPABASE_URL) {
+    console.error('API Categories Error: SUPABASE_URL is missing');
+  }
+  if (!process.env.SUPABASE_SERVICE_KEY && !process.env.SUPABASE_ANON_KEY && !process.env.VITE_SUPABASE_ANON_KEY) {
+    console.error('API Categories Error: SUPABASE_KEY is missing');
+  }
+
   if (method === 'GET') {
     try {
       const { data, error } = await supabase
@@ -12,7 +20,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .select('*')
         .order('nom');
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error fetching categories:', error);
+        throw error;
+      }
       return res.status(200).json(data);
     } catch (err: any) {
       console.error('Error fetching categories:', err);

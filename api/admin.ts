@@ -7,6 +7,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Ensure we always return JSON
   res.setHeader('Content-Type', 'application/json');
 
+  // Check env vars for debugging
+  if (!process.env.SUPABASE_URL && !process.env.VITE_SUPABASE_URL) {
+    console.error('API Admin Error: SUPABASE_URL is missing');
+  }
+  if (!process.env.SUPABASE_SERVICE_KEY && !process.env.SUPABASE_ANON_KEY && !process.env.VITE_SUPABASE_ANON_KEY) {
+    console.error('API Admin Error: SUPABASE_KEY is missing');
+  }
+
   const { method, url, query } = req;
   const cleanUrl = url?.split('?')[0] || '';
   const urlParts = cleanUrl.split('/') || [];
