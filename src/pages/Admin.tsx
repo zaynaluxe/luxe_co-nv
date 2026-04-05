@@ -10,6 +10,7 @@ import { formatPrice, API_URL, apiFetch } from '../utils';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
 import bcrypt from 'bcryptjs';
+import { SignJWT } from 'jose';
 
 // --- Types ---
 interface AdminStats {
@@ -120,30 +121,52 @@ export const AdminLogin: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
     setError('');
     setLoading(true);
     try {
-      const response = await apiFetch(API_URL + '/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, mot_de_passe: password })
-      });
+      // 1. Fetch user from Supabase directly
+      const { data: user, error: supabaseError } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('email', email)
+        .single();
 
-      let data;
-      const contentType = response.headers.get("content-type");
-      if (contentType && contentType.indexOf("application/json") !== -1) {
-        data = await response.json();
-      } else {
-        const text = await response.text();
-        console.error('Non-JSON response:', text);
-        throw new Error('Le serveur a retourné une réponse invalide (non-JSON).');
+      if (supabaseError || !user) {
+        throw new Error('Email ou mot de passe incorrect.');
       }
 
-      if (response.ok) {
-        localStorage.setItem('admin_token', data.token);
-        localStorage.setItem('admin_user', JSON.stringify(data.user));
-        onLogin();
-        toast.success('Connexion réussie');
-      } else {
-        setError(data.error || 'Email ou mot de passe incorrect.');
+      // 2. Compare password with bcryptjs
+      const isMatch = await bcrypt.compare(password, user.mot_de_passe);
+      if (!isMatch) {
+        throw new Error('Email ou mot de passe incorrect.');
       }
+
+      // 3. Check if user is admin
+      if (user.role !== 'admin') {
+        throw new Error('Accès non autorisé.');
+      }
+
+      // 4. Generate JWT with jose (compatible browser)
+      const secret = new TextEncoder().encode(import.meta.env.VITE_JWT_SECRET || 'default_secret');
+      const token = await new SignJWT({ 
+        id: user.id, 
+        email: user.email, 
+        role: user.role || 'client' 
+      })
+        .setProtectedHeader({ alg: 'HS256' })
+        .setIssuedAt()
+        .setExpirationTime('7d')
+        .sign(secret);
+
+      // 5. Store in localStorage
+      localStorage.setItem('admin_token', token);
+      localStorage.setItem('admin_user', JSON.stringify({
+        id: user.id,
+        email: user.email,
+        nom: user.nom,
+        prenom: user.prenom,
+        role: user.role || 'client'
+      }));
+
+      onLogin();
+      toast.success('Connexion réussie');
     } catch (err: any) {
       console.error('Login error:', err);
       setError(err.message || 'Erreur de connexion au serveur.');
