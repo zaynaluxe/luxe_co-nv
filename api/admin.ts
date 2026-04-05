@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabase } from './_lib/supabase.js';
-import { authenticateToken, cloudinary } from './_lib/auth.js';
+import { supabase } from './_lib/supabase.ts';
+import { authenticateToken, cloudinary } from './_lib/auth.ts';
 import bcrypt from "bcryptjs";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -9,11 +9,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const urlParts = cleanUrl.split('/') || [];
   
   // Try to get resource and ID from query (Vercel rewrite) or URL path
-  const resource = query.resource as string || urlParts[3];
-  let id = query.id as string | undefined;
-  if (!id) {
-    id = urlParts[4];
+  let resource = query.resource as string || urlParts[3] || (urlParts[1] === 'admin' ? urlParts[2] : undefined);
+  if (!resource || resource === '') {
+    // If using app.use("/api/admin", ...), urlParts might be ['', 'stats']
+    resource = urlParts[1];
   }
+  
+  let id = query.id as string | undefined;
+  if (!id || id === '') {
+    id = urlParts[4] || (urlParts[1] === 'admin' ? urlParts[3] : undefined);
+    if (!id || id === resource) id = urlParts[2];
+  }
+  if (id === '') id = undefined;
 
   if (resource === 'setup') {
     // POST /api/admin/setup
@@ -49,44 +56,88 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // GET /api/admin/stats
     try {
       const { data: orders } = await supabase.from('commandes').select('total_ttc, date_commande, statut');
-      const { data: clients } = await supabase.from('clients').select('id');
-      const { data: products } = await supabase.from('produits').select('id');
+      const { data: orderItems } = await supabase.from('lignes_commande').select('quantite, prix_unitaire, produits(nom)');
 
-      const totalRevenue = orders?.reduce((acc, o) => acc + (o.total_ttc || 0), 0) || 0;
-      const ordersCount = orders?.length || 0;
-      const clientsCount = clients?.length || 0;
-      const productsCount = products?.length || 0;
+      const now = new Date();
+      const today = now.toISOString().split('T')[0];
+      const thisMonth = now.getMonth();
+      const thisYear = now.getFullYear();
 
-      const last7Days = Array.from({ length: 7 }, (_, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() - (6 - i));
-        const dateStr = d.toISOString().split('T')[0];
-        const dayRevenue = orders?.filter(o => o.date_commande.startsWith(dateStr)).reduce((acc, o) => acc + (o.total_ttc || 0), 0) || 0;
-        return { date: dateStr, revenue: dayRevenue };
+      const dailyRevenue = orders?.filter(o => o.date_commande.startsWith(today)).reduce((acc, o) => acc + (o.total_ttc || 0), 0) || 0;
+      const monthlyRevenue = orders?.filter(o => {
+        const d = new Date(o.date_commande);
+        return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+      }).reduce((acc, o) => acc + (o.total_ttc || 0), 0) || 0;
+
+      const pendingOrders = orders?.filter(o => o.statut === 'en_attente').length || 0;
+      const completedOrders = orders?.filter(o => o.statut === 'livree').length || 0;
+
+      // Calculate top products
+      const productStats: Record<string, { sales: number; revenue: number }> = {};
+      orderItems?.forEach(item => {
+        const produits = Array.isArray(item.produits) ? item.produits[0] : item.produits;
+        const name = (produits as any)?.nom || 'Produit inconnu';
+        if (!productStats[name]) productStats[name] = { sales: 0, revenue: 0 };
+        productStats[name].sales += item.quantite;
+        productStats[name].revenue += item.quantite * item.prix_unitaire;
       });
 
-      return res.status(200).json({ totalRevenue, ordersCount, clientsCount, productsCount, last7Days });
-    } catch (err) {
-      console.error(err);
-      return res.status(500).json({ error: 'Erreur lors de la récupération des stats.' });
+      const topProducts = Object.entries(productStats)
+        .map(([name, stats]) => ({ name, ...stats }))
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 5);
+
+      const repartition = Object.entries(
+        orders?.reduce((acc: any, o) => {
+          acc[o.statut] = (acc[o.statut] || 0) + 1;
+          return acc;
+        }, {}) || {}
+      ).map(([statut, count]) => ({ statut, count: count as number }));
+
+      return res.status(200).json({ 
+        dailyRevenue, 
+        monthlyRevenue, 
+        pendingOrders, 
+        completedOrders, 
+        topProducts, 
+        repartition 
+      });
+    } catch (err: any) {
+      console.error('Error fetching admin stats:', err);
+      return res.status(500).json({ 
+        error: 'Erreur lors de la récupération des stats.', 
+        details: err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err)) 
+      });
     }
   } else if (resource === 'orders') {
     if (!id) {
       // GET /api/admin/orders
       try {
-        const { data, error } = await supabase.from('commandes').select(`*, clients(nom, prenom, telephone, ville_defaut, adresse_defaut)`).order('date_commande', { ascending: false });
+        const { data, error } = await supabase.from('commandes').select(`id, numero_commande, nom_client, telephone_contact, adresse_livraison, ville_livraison, total_ttc, statut, date_commande`).order('date_commande', { ascending: false });
         if (error) throw error;
         return res.status(200).json(data);
-      } catch (err) {
-        console.error(err);
-        return res.status(500).json({ error: 'Erreur lors de la récupération des commandes.' });
+      } catch (err: any) {
+        console.error('Error fetching admin orders:', err);
+        return res.status(500).json({ 
+          error: 'Erreur lors de la récupération des commandes.', 
+          details: err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err)) 
+        });
       }
     } else {
       if (method === 'GET') {
         // GET /api/admin/orders/:id
         try {
-          const { data, error } = await supabase.from('commandes').select(`*, clients(nom, prenom, telephone, ville_defaut, adresse_defaut), lignes_commande(*, produits(nom, image_principale_url))`).eq('id', id).single();
+          const { data, error } = await supabase.from('commandes').select(`id, numero_commande, nom_client, telephone_contact, adresse_livraison, ville_livraison, total_ttc, statut, date_commande, items:lignes_commande(*, produits(nom, image_principale_url))`).eq('id', id).single();
           if (error) throw error;
+          
+          // Map items to include produit_nom for frontend
+          if (data && data.items) {
+            data.items = data.items.map((item: any) => ({
+              ...item,
+              produit_nom: item.produits?.nom || 'Produit inconnu'
+            }));
+          }
+          
           return res.status(200).json(data);
         } catch (err) {
           console.error(err);

@@ -22,27 +22,18 @@ interface AdminStats {
 }
 
 interface AdminOrder {
-  id: number;
+  id: string | number;
   numero_commande: string;
-  client_display_name?: string;
-  client_display_phone?: string;
+  nom_client: string;
+  telephone_contact: string;
+  adresse_livraison: string;
+  ville_livraison: string;
   total_ttc: number;
-  statut: 'en_attente' | 'payee' | 'expediee' | 'livree' | 'annulee';
+  statut: 'en_attente' | 'confirmee' | 'expediee' | 'livree' | 'annulee';
   date_commande: string;
-  telephone_contact?: string;
-  clients?: {
-    nom: string;
-    prenom: string;
-    telephone: string;
-  };
 }
 
 interface OrderDetail extends AdminOrder {
-  adresse_livraison: string;
-  ville_livraison: string;
-  telephone_contact: string;
-  frais_livraison: number;
-  client_email?: string;
   items: {
     produit_nom: string;
     couleur: string;
@@ -57,16 +48,6 @@ interface AdminPixel {
   pixel_id: string;
   est_actif: boolean;
   date_creation: string;
-}
-
-interface AdminClient {
-  id: number;
-  nom: string;
-  prenom: string;
-  email: string;
-  telephone: string;
-  ville: string;
-  date_inscription: string;
 }
 
 interface AdminPromo {
@@ -237,7 +218,6 @@ export const AdminLayout: React.FC<{ children: React.ReactNode; currentView: str
     { id: 'admin_dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
     { id: 'admin_products', label: 'Produits', icon: ShoppingBag },
     { id: 'admin_orders', label: 'Commandes', icon: Package },
-    { id: 'admin_clients', label: 'Clients', icon: Users },
     { id: 'admin_promos', label: 'Promotions', icon: Tag },
     { id: 'admin_pixels', label: 'Pixels & Tracking', icon: Activity },
   ];
@@ -309,60 +289,32 @@ export const AdminLayout: React.FC<{ children: React.ReactNode; currentView: str
 export const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchStats = async () => {
+    try {
+      setError(null);
+      setLoading(true);
+      const response = await apiFetch(`${API_URL}/api/admin/stats`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+        }
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to fetch stats');
+      }
+      const data = await response.json();
+      setStats(data);
+    } catch (err) {
+      console.error('Error fetching admin stats:', err);
+      setError(err instanceof Error ? err.message : 'Une erreur est survenue');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const { data: orders, error } = await supabase
-          .from('commandes')
-          .select('total_ttc, statut, date_commande');
-        
-        if (error) throw error;
-
-        if (orders) {
-          const now = new Date();
-          const today = now.toISOString().split('T')[0];
-          const thisMonth = now.getMonth();
-          const thisYear = now.getFullYear();
-
-          const ca_jour = orders
-            .filter(o => o.date_commande.startsWith(today))
-            .reduce((sum, o) => sum + (o.total_ttc || 0), 0);
-
-          const ca_mois = orders
-            .filter(o => {
-              const d = new Date(o.date_commande);
-              return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
-            })
-            .reduce((sum, o) => sum + (o.total_ttc || 0), 0);
-
-          const commandes_attente = orders.filter(o => o.statut === 'en_attente').length;
-          const livraisons_reussies = orders.filter(o => o.statut === 'livree').length;
-
-          // For top products and repartition, we'd ideally need more data or more complex queries,
-          // but for now we'll provide some basic repartition based on what we have.
-          const repartition_statut = Object.entries(
-            orders.reduce((acc: any, o) => {
-              acc[o.statut] = (acc[o.statut] || 0) + 1;
-              return acc;
-            }, {})
-          ).map(([statut, count]) => ({ statut, count: count as number }));
-
-          setStats({
-            dailyRevenue: ca_jour,
-            monthlyRevenue: ca_mois,
-            pendingOrders: commandes_attente,
-            completedOrders: livraisons_reussies,
-            topProducts: [], // Top products would need a join or more data
-            repartition: repartition_statut
-          });
-        }
-      } catch (err) {
-        console.error('Error fetching admin stats:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchStats();
   }, []);
 
@@ -374,19 +326,40 @@ export const AdminDashboard: React.FC = () => {
     );
   }
 
-  if (!stats) return null;
+  if (error) {
+    return (
+      <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-lg text-center">
+        <p className="text-red-400 mb-2 font-bold">{error}</p>
+        <p className="text-red-400/60 text-sm mb-4 italic">
+          {error.includes('relation') ? "La table n'existe pas dans la base de données. Veuillez exécuter le schéma SQL." : ""}
+        </p>
+        <button 
+          onClick={() => fetchStats()}
+          className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+        >
+          Réessayer
+        </button>
+      </div>
+    );
+  }
+
+  if (!stats) return (
+    <div className="text-center p-8 text-gray-500">
+      Aucune donnée disponible.
+    </div>
+  );
 
   const statusLabels: Record<string, string> = {
     en_attente: 'En attente',
-    payee: 'Confirmée',
+    confirmee: 'Confirmée',
     expediee: 'Expédiée',
-    livree: 'Livrées',
+    livree: 'Livrée',
     annulee: 'Annulée'
   };
 
   const statusColors: Record<string, string> = {
     en_attente: 'bg-yellow-500',
-    payee: 'bg-blue-500',
+    confirmee: 'bg-blue-500',
     expediee: 'bg-purple-500',
     livree: 'bg-green-500',
     annulee: 'bg-red-500'
@@ -419,7 +392,7 @@ export const AdminDashboard: React.FC = () => {
               <p className="text-xs uppercase tracking-widest text-gray-500">{card.label}</p>
               <card.icon size={20} className={card.color} />
             </div>
-            <p className="text-2xl font-bold">{card.value}</p>
+            <p className="text-2xl font-bold whitespace-nowrap overflow-hidden text-ellipsis">{card.value}</p>
           </motion.div>
         ))}
       </div>
@@ -479,6 +452,7 @@ export const AdminProducts: React.FC = () => {
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [categories, setCategories] = useState<{id: number, nom: string}[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<AdminProduct | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -501,14 +475,21 @@ export const AdminProducts: React.FC = () => {
 
   const fetchProducts = async () => {
     try {
-      const { data, error } = await supabase
-        .from('produits')
-        .select('*, categories(nom)');
-      
-      if (error) throw error;
-      if (data) setProducts(data);
-    } catch (err) {
+      setError(null);
+      const response = await apiFetch(`${API_URL}/api/admin/products`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+        }
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to fetch products');
+      }
+      const data = await response.json();
+      setProducts(data);
+    } catch (err: any) {
       console.error('Error fetching products:', err);
+      setError(err.message || 'Une erreur est survenue');
     } finally {
       setLoading(false);
     }
@@ -516,16 +497,16 @@ export const AdminProducts: React.FC = () => {
 
   const fetchCategories = async () => {
     try {
-      const { data, error } = await supabase
-        .from('categories')
-        .select('*');
-      
-      if (error) throw error;
-      if (data) {
-        setCategories(data);
-        if (data.length > 0 && formData.categorie_id === 0) {
-          setFormData(prev => ({ ...prev, categorie_id: data[0].id }));
+      const response = await apiFetch(`${API_URL}/api/categories`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
         }
+      });
+      if (!response.ok) throw new Error('Failed to fetch categories');
+      const data = await response.json();
+      setCategories(data);
+      if (data.length > 0 && formData.categorie_id === 0) {
+        setFormData(prev => ({ ...prev, categorie_id: data[0].id }));
       }
     } catch (err) {
       console.error('Error fetching categories:', err);
@@ -536,6 +517,31 @@ export const AdminProducts: React.FC = () => {
     fetchProducts();
     fetchCategories();
   }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-2 border-[#C9A227] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-lg text-center">
+        <p className="text-red-400 mb-2 font-bold">{error}</p>
+        <p className="text-red-400/60 text-sm mb-4 italic">
+          {error.includes('relation') ? "La table n'existe pas dans la base de données. Veuillez exécuter le schéma SQL." : ""}
+        </p>
+        <button 
+          onClick={() => fetchProducts()}
+          className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+        >
+          Réessayer
+        </button>
+      </div>
+    );
+  }
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -801,19 +807,25 @@ export const AdminProducts: React.FC = () => {
     if (!productToDelete) return;
     
     try {
-      const { error } = await supabase
-        .from('produits')
-        .delete()
-        .eq('id', productToDelete.id);
+      const response = await apiFetch(`${API_URL}/api/products/${productToDelete.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+        }
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to delete product');
+      }
 
+      toast.success('Produit supprimé');
       setShowDeleteConfirm(false);
       setProductToDelete(null);
       fetchProducts();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error deleting product:', err);
-      alert('Une erreur est survenue lors de la suppression.');
+      toast.error(err.message || 'Une erreur est survenue lors de la suppression.');
     }
   };
 
@@ -1420,6 +1432,7 @@ export const AdminProducts: React.FC = () => {
 export const AdminPromos: React.FC = () => {
   const [promos, setPromos] = useState<AdminPromo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editingPromo, setEditingPromo] = useState<AdminPromo | null>(null);
   const [formData, setFormData] = useState({
@@ -1432,14 +1445,22 @@ export const AdminPromos: React.FC = () => {
 
   const fetchPromos = async () => {
     try {
-      const { data, error } = await supabase
-        .from('promotions')
-        .select('*');
-      
-      if (error) throw error;
-      if (data) setPromos(data);
+      setError(null);
+      setLoading(true);
+      const response = await apiFetch(`${API_URL}/api/promotions`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+        }
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to fetch promos');
+      }
+      const data = await response.json();
+      setPromos(data);
     } catch (err) {
       console.error('Error fetching promos:', err);
+      setError(err instanceof Error ? err.message : 'Une erreur est survenue');
     } finally {
       setLoading(false);
     }
@@ -1454,30 +1475,48 @@ export const AdminPromos: React.FC = () => {
       const promo = promos.find(p => p.id === id);
       if (!promo) return;
 
-      const { error } = await supabase
-        .from('promotions')
-        .update({ est_actif: !promo.est_actif })
-        .eq('id', id);
+      const response = await apiFetch(`${API_URL}/api/promotions/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+        },
+        body: JSON.stringify({ est_actif: !promo.est_actif })
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to toggle promo');
+      }
+      
+      toast.success('Statut mis à jour');
       fetchPromos();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error toggling promo:', err);
+      toast.error(err.message || 'Erreur lors de la mise à jour');
     }
   };
 
   const handleDelete = async (id: number) => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce code promo ?')) return;
     try {
-      const { error } = await supabase
-        .from('promotions')
-        .delete()
-        .eq('id', id);
+      const response = await apiFetch(`${API_URL}/api/promotions/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+        }
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to delete promo');
+      }
+      
+      toast.success('Code promo supprimé');
       fetchPromos();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error deleting promo:', err);
+      toast.error(err.message || 'Erreur lors de la suppression');
     }
   };
 
@@ -1485,28 +1524,28 @@ export const AdminPromos: React.FC = () => {
     e.preventDefault();
 
     try {
-      let error;
-      if (editingPromo) {
-        const { error: updateError } = await supabase
-          .from('promotions')
-          .update(formData)
-          .eq('id', editingPromo.id);
-        error = updateError;
-      } else {
-        const { error: insertError } = await supabase
-          .from('promotions')
-          .insert([formData]);
-        error = insertError;
+      const response = await apiFetch(`${API_URL}/api/promotions${editingPromo ? `/${editingPromo.id}` : ''}`, {
+        method: editingPromo ? 'PUT' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to save promo');
       }
 
-      if (error) throw error;
-
+      toast.success(editingPromo ? 'Code promo mis à jour' : 'Code promo créé');
       setShowModal(false);
       setEditingPromo(null);
       setFormData({ code: '', type_remise: 'pourcentage', valeur_remise: 0, date_expiration: '', usage_max: 100 });
       fetchPromos();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error saving promo:', err);
+      toast.error(err.message || 'Erreur lors de l\'enregistrement');
     }
   };
 
@@ -1551,6 +1590,18 @@ export const AdminPromos: React.FC = () => {
           <tbody>
             {loading ? (
               <tr><td colSpan={7} className="p-8 text-center text-gray-500">Chargement...</td></tr>
+            ) : error ? (
+              <tr>
+                <td colSpan={7} className="p-8 text-center">
+                  <p className="text-red-400 mb-2">{error}</p>
+                  <button 
+                    onClick={() => fetchPromos()}
+                    className="text-xs text-[#C9A227] hover:underline"
+                  >
+                    Réessayer
+                  </button>
+                </td>
+              </tr>
             ) : promos.map((p) => (
               <tr key={p.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                 <td className="p-4 text-sm font-mono text-[#C9A227]">{p.code}</td>
@@ -1668,34 +1719,30 @@ export const AdminPromos: React.FC = () => {
 export const AdminOrders: React.FC = () => {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<OrderDetail | null>(null);
   const [showDetail, setShowDetail] = useState(false);
 
   const fetchOrders = async () => {
     try {
-      const { data, error } = await supabase
-        .from('commandes')
-        .select(`
-          *,
-          clients (
-            nom,
-            prenom,
-            telephone
-          ),
-          lignes_commande (
-            *,
-            variantes_produits (
-              *,
-              produits (*)
-            )
-          )
-        `)
-        .order('date_commande', { ascending: false });
-      
-      if (error) throw error;
-      if (data) setOrders(data);
+      setError(null);
+      setLoading(true);
+      const response = await apiFetch(`${API_URL}/api/admin/orders`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+        }
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        const message = errData.error || 'Failed to fetch orders';
+        const details = errData.details ? ` (${errData.details})` : '';
+        throw new Error(message + details);
+      }
+      const data = await response.json();
+      setOrders(data);
     } catch (err) {
       console.error('Error fetching orders:', err);
+      setError(err instanceof Error ? err.message : 'Une erreur est survenue');
     } finally {
       setLoading(false);
     }
@@ -1707,30 +1754,29 @@ export const AdminOrders: React.FC = () => {
 
   const fetchOrderDetail = async (id: number) => {
     try {
-      const { data, error } = await supabase
-        .from('commandes')
-        .select('*, items:commande_items(*)')
-        .eq('id', id)
-        .single();
-      
-      if (error) throw error;
-      if (data) {
-        setSelectedOrder(data);
-        setShowDetail(true);
-      }
+      const response = await apiFetch(`${API_URL}/api/admin/orders/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+        }
+      });
+      if (!response.ok) throw new Error('Failed to fetch order detail');
+      const data = await response.json();
+      setSelectedOrder(data);
+      setShowDetail(true);
     } catch (err) {
       console.error('Error fetching order detail:', err);
+      toast.error('Erreur lors de la récupération des détails');
     }
   };
 
-  const updateStatus = async (id: number, status: string) => {
+  const updateStatus = async (id: string | number, status: string) => {
     try {
-      const { error } = await supabase
-        .from('commandes')
-        .update({ statut: status })
-        .eq('id', id);
-
-      if (error) throw error;
+      const { error } = await supabase.from('commandes').update({ statut: status }).eq('id', id);
+      
+      if (error) {
+        console.log('Erreur statut:', error.message);
+        throw error;
+      }
       
       toast.success('Statut mis à jour', {
         style: { background: '#1a1a1a', color: '#4ade80', border: '1px solid #4ade80/20' }
@@ -1747,7 +1793,7 @@ export const AdminOrders: React.FC = () => {
 
   const statusColors = {
     en_attente: 'bg-yellow-500/20 text-yellow-400',
-    payee: 'bg-blue-500/20 text-blue-400',
+    confirmee: 'bg-blue-500/20 text-blue-400',
     expediee: 'bg-purple-500/20 text-purple-400',
     livree: 'bg-green-500/20 text-green-400',
     annulee: 'bg-red-500/20 text-red-400',
@@ -1755,7 +1801,7 @@ export const AdminOrders: React.FC = () => {
 
   const statusLabels = {
     en_attente: 'En attente',
-    payee: 'Confirmée',
+    confirmee: 'Confirmée',
     expediee: 'Expédiée',
     livree: 'Livrée',
     annulee: 'Annulée'
@@ -1782,15 +1828,27 @@ export const AdminOrders: React.FC = () => {
           <tbody>
             {loading ? (
               <tr><td colSpan={6} className="p-8 text-center text-gray-500">Chargement...</td></tr>
+            ) : error ? (
+              <tr>
+                <td colSpan={6} className="p-8 text-center">
+                  <p className="text-red-400 mb-2">{error}</p>
+                  <button 
+                    onClick={() => fetchOrders()}
+                    className="text-xs text-[#C9A227] hover:underline"
+                  >
+                    Réessayer
+                  </button>
+                </td>
+              </tr>
             ) : orders.map((o) => (
               <tr key={o.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                 <td className="p-4 text-sm font-mono text-[#C9A227]">{o.numero_commande}</td>
                 <td className="p-4">
                   <p className="text-sm font-medium">
-                    {o.clients ? `${o.clients.prenom} ${o.clients.nom}` : (o.client_display_name || 'Client Rapide')}
+                    {o.telephone_contact}
                   </p>
-                  <p className="text-[10px] text-gray-500 font-mono">
-                    {o.clients?.telephone || o.client_display_phone || o.telephone_contact || 'N/A'}
+                  <p className="text-[10px] text-gray-400 font-mono">
+                    {o.nom_client}
                   </p>
                 </td>
                 <td className="p-4 text-sm font-mono">{formatPrice(o.total_ttc)}</td>
@@ -1802,7 +1860,7 @@ export const AdminOrders: React.FC = () => {
                     className={`text-[10px] uppercase px-2 py-1 rounded bg-black border-none outline-none ${statusColors[o.statut]}`}
                   >
                     <option value="en_attente">En attente</option>
-                    <option value="payee">Confirmée</option>
+                    <option value="confirmee">Confirmée</option>
                     <option value="expediee">Expédiée</option>
                     <option value="livree">Livrée</option>
                     <option value="annulee">Annulée</option>
@@ -1848,13 +1906,10 @@ export const AdminOrders: React.FC = () => {
                 <section>
                   <h4 className="text-[10px] uppercase tracking-[0.2em] text-gray-500 mb-4">Client & Livraison</h4>
                   <div className="bg-black/40 p-4 rounded border border-white/5 space-y-2">
-                    <p className="text-sm font-bold">
-                      {selectedOrder.client_display_name}
-                    </p>
-                    <p className="text-xs text-gray-400">{selectedOrder.client_display_phone}</p>
-                    {selectedOrder.client_email && <p className="text-xs text-gray-400">{selectedOrder.client_email}</p>}
-                    <p className="text-xs text-gray-400">{selectedOrder.adresse_livraison}</p>
-                    <p className="text-xs text-gray-400">{selectedOrder.ville_livraison}</p>
+                    <p className="text-xs text-gray-400"><span className="text-gray-500 uppercase tracking-widest text-[9px]">Nom :</span> {selectedOrder.nom_client}</p>
+                    <p className="text-xs text-gray-400"><span className="text-gray-500 uppercase tracking-widest text-[9px]">Téléphone :</span> {selectedOrder.telephone_contact}</p>
+                    <p className="text-xs text-gray-400"><span className="text-gray-500 uppercase tracking-widest text-[9px]">Ville :</span> {selectedOrder.ville_livraison}</p>
+                    <p className="text-xs text-gray-400"><span className="text-gray-500 uppercase tracking-widest text-[9px]">Adresse :</span> {selectedOrder.adresse_livraison}</p>
                     <p className="text-[10px] text-gray-500 uppercase pt-2 border-t border-white/5">
                       Commandé le {new Date(selectedOrder.date_commande).toLocaleString()}
                     </p>
@@ -1893,7 +1948,7 @@ export const AdminOrders: React.FC = () => {
                     className={`w-full p-3 rounded bg-black border border-white/10 text-sm uppercase tracking-widest ${statusColors[selectedOrder.statut]}`}
                   >
                     <option value="en_attente">En attente</option>
-                    <option value="payee">Confirmée</option>
+                    <option value="confirmee">Confirmée</option>
                     <option value="expediee">Expédiée</option>
                     <option value="livree">Livrée</option>
                     <option value="annulee">Annulée</option>
@@ -1913,6 +1968,7 @@ export const AdminPixels: React.FC = () => {
   const [fbPixel, setFbPixel] = useState('');
   const [ttPixel, setTtPixel] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
 
   useEffect(() => {
@@ -1921,11 +1977,21 @@ export const AdminPixels: React.FC = () => {
 
   const fetchPixels = async () => {
     try {
-      const { data, error } = await supabase
-        .from('pixels')
-        .select('*');
+      setError(null);
+      setLoading(true);
+      const response = await apiFetch(`${API_URL}/api/pixels`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+        }
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        const message = errData.error || 'Failed to fetch pixels';
+        const details = errData.details ? ` (${errData.details})` : '';
+        throw new Error(message + details);
+      }
+      const data = await response.json();
       
-      if (error) throw error;
       if (data) {
         setPixels(data);
         const fb = data.find((p: any) => p.type === 'facebook');
@@ -1933,8 +1999,9 @@ export const AdminPixels: React.FC = () => {
         if (fb) setFbPixel(fb.pixel_id);
         if (tt) setTtPixel(tt.pixel_id);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching pixels:', err);
+      setError(err.message || 'Une erreur est survenue');
     } finally {
       setLoading(false);
     }
@@ -1942,32 +2009,37 @@ export const AdminPixels: React.FC = () => {
 
   const handleSave = async (type: 'facebook' | 'tiktok', pixelId: string) => {
     if (type === 'facebook' && pixelId && !/^\d{15,16}$/.test(pixelId)) {
-      alert('Le Pixel ID Facebook doit contenir 15 ou 16 chiffres.');
+      toast.error('Le Pixel ID Facebook doit contenir 15 ou 16 chiffres.');
       return;
     }
 
     setSaving(type);
     try {
       const existing = pixels.find(p => p.type === type);
-      let error;
+      
+      const response = await apiFetch(`${API_URL}/api/pixels${existing ? `/${existing.id}` : ''}`, {
+        method: existing ? 'PUT' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+        },
+        body: JSON.stringify({
+          type,
+          pixel_id: pixelId,
+          est_actif: true
+        })
+      });
 
-      if (existing) {
-        const { error: updateError } = await supabase
-          .from('pixels')
-          .update({ pixel_id: pixelId, est_actif: true })
-          .eq('id', existing.id);
-        error = updateError;
-      } else {
-        const { error: insertError } = await supabase
-          .from('pixels')
-          .insert([{ type, pixel_id: pixelId, est_actif: true }]);
-        error = insertError;
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to save pixel');
       }
-
-      if (error) throw error;
+      
+      toast.success('Pixel enregistré avec succès');
       fetchPixels();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error saving pixel:', err);
+      toast.error(err.message || 'Erreur lors de l\'enregistrement');
     } finally {
       setSaving(null);
     }
@@ -1980,22 +2052,43 @@ export const AdminPixels: React.FC = () => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce pixel ?')) return;
 
     try {
-      const { error } = await supabase
-        .from('pixels')
-        .delete()
-        .eq('id', pixel.id);
+      const response = await apiFetch(`${API_URL}/api/pixels/${pixel.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+        }
+      });
 
-      if (error) throw error;
-
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to delete pixel');
+      }
+      
+      toast.success('Pixel supprimé');
       if (type === 'facebook') setFbPixel('');
       if (type === 'tiktok') setTtPixel('');
       fetchPixels();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error deleting pixel:', err);
+      toast.error(err.message || 'Erreur lors de la suppression');
     }
   };
 
   if (loading) return <div className="p-8 text-center text-gray-500">Chargement...</div>;
+
+  if (error) {
+    return (
+      <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-lg text-center">
+        <p className="text-red-400 mb-4">{error}</p>
+        <button 
+          onClick={() => fetchPixels()}
+          className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+        >
+          Réessayer
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -2092,66 +2185,6 @@ export const AdminPixels: React.FC = () => {
   );
 };
 
-export const AdminClients: React.FC = () => {
-  const [clients, setClients] = useState<AdminClient[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchClients = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('clients')
-          .select('*');
-        
-        if (error) throw error;
-        if (data) setClients(data);
-      } catch (err) {
-        console.error('Error fetching clients:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchClients();
-  }, []);
-
-  return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-serif text-[#C9A227]">Gestion des Clients</h2>
-      </div>
-
-      <div className="bg-[#1a1a1a] rounded-lg border border-white/5 overflow-hidden">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-black/40 border-b border-white/5">
-              <th className="p-4 text-xs uppercase tracking-widest text-gray-500">Client</th>
-              <th className="p-4 text-xs uppercase tracking-widest text-gray-500">Email</th>
-              <th className="p-4 text-xs uppercase tracking-widest text-gray-500">Téléphone</th>
-              <th className="p-4 text-xs uppercase tracking-widest text-gray-500">Ville</th>
-              <th className="p-4 text-xs uppercase tracking-widest text-gray-500">Inscription</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={5} className="p-8 text-center text-gray-500">Chargement...</td></tr>
-            ) : clients.map((c) => (
-              <tr key={c.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                <td className="p-4">
-                  <p className="text-sm font-medium">{c.prenom} {c.nom}</p>
-                </td>
-                <td className="p-4 text-sm text-gray-400">{c.email}</td>
-                <td className="p-4 text-sm font-mono">{c.telephone}</td>
-                <td className="p-4 text-xs uppercase tracking-widest text-gray-400">{c.ville}</td>
-                <td className="p-4 text-xs text-gray-500 uppercase">{new Date(c.date_inscription).toLocaleDateString()}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-};
-
 const AdminPage: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentView, setCurrentView] = useState('admin_dashboard');
@@ -2168,7 +2201,6 @@ const AdminPage: React.FC = () => {
       case 'admin_dashboard': return <AdminDashboard />;
       case 'admin_products': return <AdminProducts />;
       case 'admin_orders': return <AdminOrders />;
-      case 'admin_clients': return <AdminClients />;
       case 'admin_promos': return <AdminPromos />;
       case 'admin_pixels': return <AdminPixels />;
       default: return <AdminDashboard />;

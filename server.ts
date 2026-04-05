@@ -4,15 +4,15 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 // Import handlers
-import productsHandler from "./api/products";
-import categoriesHandler from "./api/categories";
-import ordersHandler from "./api/orders";
-import authHandler from "./api/auth";
-import adminHandler from "./api/admin";
-import uploadHandler from "./api/upload";
-import promotionsHandler from "./api/promotions";
-import pixelsHandler from "./api/pixels";
-import healthHandler from "./api/health";
+import productsHandler from "./api/products.ts";
+import categoriesHandler from "./api/categories.ts";
+import ordersHandler from "./api/orders.ts";
+import authHandler from "./api/auth.ts";
+import adminHandler from "./api/admin.ts";
+import uploadHandler from "./api/upload.ts";
+import promotionsHandler from "./api/promotions.ts";
+import pixelsHandler from "./api/pixels.ts";
+import healthHandler from "./api/health.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,14 +23,63 @@ const PORT = 3000;
 app.use(express.json({ limit: '50mb' }));
 
 // API Routes mapping
-app.use("/api/products", (req, res) => productsHandler(req as any, res as any));
-app.use("/api/categories", (req, res) => categoriesHandler(req as any, res as any));
-app.use("/api/orders", (req, res) => ordersHandler(req as any, res as any));
-app.use("/api/auth", (req, res) => authHandler(req as any, res as any));
-app.use("/api/admin", (req, res) => adminHandler(req as any, res as any));
-app.use("/api/promotions", (req, res) => promotionsHandler(req as any, res as any));
-app.use("/api/pixels", (req, res) => pixelsHandler(req as any, res as any));
-app.use("/api/health", (req, res) => healthHandler(req as any, res as any));
+app.use("/api/products", (req, res) => {
+  const id = req.path.split('/').filter(Boolean)[0];
+  if (id) req.query.id = id;
+  return productsHandler(req as any, res as any);
+});
+app.use("/api/categories", (req, res) => {
+  const id = req.path.split('/').filter(Boolean)[0];
+  if (id) req.query.id = id;
+  return categoriesHandler(req as any, res as any);
+});
+app.all("/api/orders/quick", (req, res) => {
+  req.query.quick = "true";
+  return ordersHandler(req as any, res as any);
+});
+app.use("/api/orders", (req, res) => {
+  const parts = req.path.split('/').filter(Boolean);
+  if (parts[0] && parts[0] === 'my-orders') {
+    // This is /api/orders/my-orders
+  } else if (parts[0]) {
+    req.query.id = parts[0];
+  }
+  return ordersHandler(req as any, res as any);
+});
+app.all("/api/auth/login", (req, res) => {
+  req.query.login = "true";
+  return authHandler(req as any, res as any);
+});
+app.all("/api/auth/register", (req, res) => {
+  req.query.register = "true";
+  return authHandler(req as any, res as any);
+});
+app.use("/api/auth", (req, res) => {
+  const id = req.path.split('/').filter(Boolean)[0];
+  if (id && id !== 'login' && id !== 'register') req.query.id = id;
+  return authHandler(req as any, res as any);
+});
+app.all("/api/admin/setup", (req, res) => {
+  req.query.resource = "setup";
+  return adminHandler(req as any, res as any);
+});
+app.use("/api/admin", (req, res) => {
+  const parts = req.path.split('/').filter(Boolean);
+  if (parts[0] && parts[0] !== 'setup') req.query.resource = parts[0];
+  if (parts[1]) req.query.id = parts[1];
+  return adminHandler(req as any, res as any);
+});
+app.use("/api/promotions", (req, res) => {
+  const id = req.path.split('/').filter(Boolean)[0];
+  if (id) req.query.id = id;
+  return promotionsHandler(req as any, res as any);
+});
+app.use("/api/pixels", (req, res) => {
+  const id = req.path.split('/').filter(Boolean)[0];
+  if (id) req.query.id = id;
+  return pixelsHandler(req as any, res as any);
+});
+app.all("/api/health", (req, res) => healthHandler(req as any, res as any));
 app.use("/api/upload", (req, res) => uploadHandler(req as any, res as any));
 
 // API 404 handler to prevent falling through to Vite for non-existent API routes
@@ -50,7 +99,7 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
+    app.get('*all', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

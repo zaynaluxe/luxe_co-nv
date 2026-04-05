@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabase } from './_lib/supabase.js';
-import { authenticateToken } from './_lib/auth.js';
+import { supabase } from './_lib/supabase.ts';
+import { authenticateToken } from './_lib/auth.ts';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { method, url, query } = req;
@@ -9,20 +9,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   
   // Try to get ID from query (Vercel rewrite) or URL path
   let id = query.id as string | undefined;
-  if (!id) {
+  if (!id || id === '') {
     id = urlParts[urlParts.length - 1] === 'pixels' ? undefined : urlParts[urlParts.length - 1];
   }
+  if (id === '') id = undefined;
 
   if (method === 'GET') {
     if (!id) {
       // GET /api/pixels
       try {
-        const { data, error } = await supabase.from('pixels').select('*').order('nom');
+        const { data, error } = await supabase.from('pixels').select('id, type, pixel_id, est_actif, date_creation').order('id');
         if (error) throw error;
         return res.status(200).json(data);
-      } catch (err) {
-        console.error(err);
-        return res.status(500).json({ error: 'Erreur lors de la récupération des pixels.' });
+      } catch (err: any) {
+        console.error('Error fetching pixels:', err);
+        return res.status(500).json({ 
+          error: 'Erreur lors de la récupération des pixels.', 
+          details: err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err)) 
+        });
       }
     } else {
       // GET /api/pixels/:id
@@ -40,17 +44,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const user = authenticateToken(req);
     if (!user || (user as any).role !== 'admin') return res.status(401).json({ error: 'Accès non autorisé.' });
 
-    const { nom, plateforme, pixel_id, est_actif } = req.body;
+    const { type, pixel_id, est_actif } = req.body;
     try {
       const { data, error } = await supabase.from('pixels').insert([{
-        nom, plateforme, pixel_id, est_actif
+        type, pixel_id, est_actif
       }]).select().single();
 
       if (error) throw error;
       return res.status(201).json(data);
     } catch (err) {
-      console.error(err);
-      return res.status(500).json({ error: 'Erreur lors de la création du pixel.' });
+      console.error('Error creating pixel:', err);
+      return res.status(500).json({ error: 'Erreur lors de la création du pixel.', details: err instanceof Error ? err.message : String(err) });
+    }
+  } else if (method === 'PUT' || method === 'PATCH') {
+    if (!id) return res.status(400).json({ error: "ID manquant" });
+    const user = authenticateToken(req);
+    if (!user || (user as any).role !== 'admin') return res.status(401).json({ error: 'Accès non autorisé.' });
+
+    const { type, pixel_id, est_actif } = req.body;
+    try {
+      const { data, error } = await supabase.from('pixels').update({
+        type, pixel_id, est_actif
+      }).eq('id', id).select().single();
+
+      if (error) throw error;
+      return res.status(200).json(data);
+    } catch (err) {
+      console.error('Error updating pixel:', err);
+      return res.status(500).json({ error: 'Erreur lors de la mise à jour du pixel.', details: err instanceof Error ? err.message : String(err) });
     }
   } else if (method === 'DELETE') {
     if (!id) return res.status(400).json({ error: "ID manquant" });

@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabase } from './_lib/supabase.js';
-import { authenticateToken } from './_lib/auth.js';
+import { supabase } from './_lib/supabase.ts';
+import { authenticateToken } from './_lib/auth.ts';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { method } = req;
@@ -14,9 +14,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (error) throw error;
       return res.status(200).json(data);
-    } catch (err) {
-      console.error(err);
-      return res.status(500).json({ error: 'Erreur lors de la récupération des catégories.' });
+    } catch (err: any) {
+      console.error('Error fetching categories:', err);
+      return res.status(500).json({ 
+        error: 'Erreur lors de la récupération des catégories.', 
+        details: err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err)) 
+      });
     }
   } else if (method === 'POST') {
     const user = authenticateToken(req);

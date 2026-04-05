@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabase } from './_lib/supabase.js';
-import { authenticateToken } from './_lib/auth.js';
+import { supabase } from './_lib/supabase.ts';
+import { authenticateToken } from './_lib/auth.ts';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { method, url, query } = req;
@@ -9,9 +9,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   
   // Try to get ID from query (Vercel rewrite) or URL path
   let id = query.id as string | undefined;
-  if (!id) {
+  if (!id || id === '') {
     id = urlParts[urlParts.length - 1] === 'promotions' ? undefined : urlParts[urlParts.length - 1];
   }
+  if (id === '') id = undefined;
 
   if (method === 'GET') {
     if (!id) {
@@ -20,9 +21,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { data, error } = await supabase.from('codes_promo').select('*').order('code');
         if (error) throw error;
         return res.status(200).json(data);
-      } catch (err) {
-        console.error(err);
-        return res.status(500).json({ error: 'Erreur lors de la récupération des promotions.' });
+      } catch (err: any) {
+        console.error('Error fetching promotions:', err);
+        return res.status(500).json({ 
+          error: 'Erreur lors de la récupération des promotions.', 
+          details: err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err)) 
+        });
       }
     } else {
       // GET /api/promotions/:id (check code validity)

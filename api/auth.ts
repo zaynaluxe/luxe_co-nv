@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabase } from './_lib/supabase.js';
-import { authenticateToken } from './_lib/auth.js';
+import { supabase } from './_lib/supabase.ts';
+import { authenticateToken } from './_lib/auth.ts';
 import bcrypt from "bcryptjs";
 import * as jwt from "jsonwebtoken";
 
@@ -11,9 +11,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   
   // Try to get ID from query (Vercel rewrite) or URL path
   let id = query.id as string | undefined;
-  if (!id) {
+  if (!id || id === '') {
     id = urlParts[urlParts.length - 1] === 'auth' ? undefined : urlParts[urlParts.length - 1];
   }
+  if (id === '') id = undefined;
 
   if (method === 'POST') {
     if (query.login === 'true' || url?.includes('/login')) {

@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabase } from './_lib/supabase.js';
-import { authenticateToken, cloudinary } from './_lib/auth.js';
+import { supabase } from './_lib/supabase.ts';
+import { authenticateToken, cloudinary } from './_lib/auth.ts';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { method, url, query } = req;
@@ -9,9 +9,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   
   // Try to get ID from query (Vercel rewrite) or URL path
   let id = query.id as string | undefined;
-  if (!id) {
+  if (!id || id === '') {
     id = urlParts[urlParts.length - 1] === 'products' ? undefined : urlParts[urlParts.length - 1];
   }
+  if (id === '') id = undefined;
 
   if (method === 'GET') {
     if (!id) {
@@ -43,8 +44,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(200).json(flattenedData);
       } catch (err) {
-        console.error(err);
-        return res.status(500).json({ error: 'Erreur lors de la récupération des produits.' });
+        console.error('Error fetching products:', err);
+        return res.status(500).json({ error: 'Erreur lors de la récupération des produits.', details: err instanceof Error ? err.message : String(err) });
       }
     } else {
       // GET /api/products/:id
