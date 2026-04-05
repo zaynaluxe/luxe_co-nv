@@ -57,18 +57,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const urlParts = cleanUrl.split('/') || [];
   
   // Try to get resource and ID from query (Vercel rewrite) or URL path
-  let resource = query.resource as string || urlParts[3] || (urlParts[1] === 'admin' ? urlParts[2] : undefined);
-  if (!resource || resource === '') {
-    // If using app.use("/api/admin", ...), urlParts might be ['', 'stats']
-    resource = urlParts[1];
-  }
-  
+  let resource = query.resource as string;
   let id = query.id as string | undefined;
-  if (!id || id === '') {
-    id = urlParts[4] || (urlParts[1] === 'admin' ? urlParts[3] : undefined);
-    if (!id || id === resource) id = urlParts[2];
+
+  if (!resource) {
+    // Fallback for direct calls if rewrites are not used
+    // /api/admin/orders -> urlParts: ['', 'api', 'admin', 'orders']
+    if (urlParts[1] === 'api' && urlParts[2] === 'admin') {
+      resource = urlParts[3];
+      id = urlParts[4];
+    } else if (urlParts[1] === 'admin') {
+      // /admin/orders
+      resource = urlParts[2];
+      id = urlParts[3];
+    }
   }
-  if (id === '') id = undefined;
+
+  if (id === '' || id === 'undefined') id = undefined;
 
   try {
     if (resource === 'setup') {
@@ -186,9 +191,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           }
           
           return res.status(200).json(data);
-        } catch (err) {
-          console.error(err);
-          return res.status(500).json({ error: 'Erreur lors de la récupération de la commande.' });
+        } catch (err: any) {
+          console.error('Error fetching admin order detail:', err);
+          return res.status(500).json({ 
+            error: 'Erreur lors de la récupération de la commande.',
+            details: err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err))
+          });
         }
       } else if (method === 'PATCH' || method === 'PUT') {
         // PATCH/PUT /api/admin/orders/:id
@@ -197,9 +205,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const { data, error } = await supabase.from('commandes').update({ statut }).eq('id', id).select().single();
           if (error) throw error;
           return res.status(200).json(data);
-        } catch (err) {
-          console.error(err);
-          return res.status(500).json({ error: 'Erreur lors de la mise à jour de la commande.' });
+        } catch (err: any) {
+          console.error('Error updating admin order status:', err);
+          return res.status(500).json({ 
+            error: 'Erreur lors de la mise à jour de la commande.',
+            details: err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err))
+          });
         }
       }
     }
@@ -209,9 +220,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { data, error } = await supabase.from('clients').select('*').order('nom');
       if (error) throw error;
       return res.status(200).json(data);
-    } catch (err) {
-      console.error(err);
-      return res.status(500).json({ error: 'Erreur lors de la récupération des clients.' });
+    } catch (err: any) {
+      console.error('Error fetching admin clients:', err);
+      return res.status(500).json({ 
+        error: 'Erreur lors de la récupération des clients.',
+        details: err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err))
+      });
     }
   } else if (resource === 'products') {
     // GET /api/admin/products
@@ -219,9 +233,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { data, error } = await supabase.from('produits').select(`*, categories(nom)`).order('nom');
       if (error) throw error;
       return res.status(200).json(data);
-    } catch (err) {
-      console.error(err);
-      return res.status(500).json({ error: 'Erreur lors de la récupération des produits.' });
+    } catch (err: any) {
+      console.error('Error fetching admin products:', err);
+      return res.status(500).json({ 
+        error: 'Erreur lors de la récupération des produits.',
+        details: err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err))
+      });
     }
     } else {
       return res.status(404).json({ error: 'Resource not found' });
