@@ -4,6 +4,9 @@ import { authenticateToken, cloudinary } from './_lib/auth.ts';
 import bcrypt from "bcryptjs";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Ensure we always return JSON
+  res.setHeader('Content-Type', 'application/json');
+
   const { method, url, query } = req;
   const cleanUrl = url?.split('?')[0] || '';
   const urlParts = cleanUrl.split('/') || [];
@@ -22,18 +25,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   if (id === '') id = undefined;
 
-  if (resource === 'setup') {
-    // POST /api/admin/setup
-    if (method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-    const { email, mot_de_passe, nom, prenom } = req.body;
-    if (!email || !mot_de_passe) {
-      return res.status(400).json({ error: 'Email et mot de passe requis pour le setup.' });
-    }
-    try {
+  try {
+    if (resource === 'setup') {
+      // POST /api/admin/setup
+      if (method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+      const { email, mot_de_passe, nom, prenom } = req.body;
+      if (!email || !mot_de_passe) {
+        return res.status(400).json({ error: 'Email et mot de passe requis pour le setup.' });
+      }
+
       const { data: existingAdmin } = await supabase.from('clients').select('id').eq('email', email).maybeSingle();
       if (existingAdmin) return res.status(400).json({ error: 'Un utilisateur avec cet email existe déjà.' });
 
-      const hashedPassword = (bcrypt as any).default ? await (bcrypt as any).default.hash(mot_de_passe, 10) : await bcrypt.hash(mot_de_passe, 10);
+      const hash = (bcrypt as any).hash || (bcrypt as any).default?.hash;
+      const hashedPassword = await (hash ? hash(mot_de_passe, 10) : bcrypt.hash(mot_de_passe, 10));
+      
       const { data: admin, error } = await supabase.from('clients').insert([{
         email, mot_de_passe: hashedPassword, nom: nom || 'Admin', prenom: prenom || 'Luxe', role: 'admin'
       }]).select().single();
@@ -43,16 +49,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         throw error;
       }
       return res.status(201).json({ message: 'Administrateur créé avec succès', user: admin });
-    } catch (err) {
-      console.error('Setup handler error:', err);
-      return res.status(500).json({ error: 'Erreur lors de la configuration de l\'admin.' });
     }
-  }
 
-  const user = authenticateToken(req);
-  if (!user || (user as any).role !== 'admin') return res.status(401).json({ error: 'Accès non autorisé.' });
+    const user = authenticateToken(req);
+    if (!user || (user as any).role !== 'admin') return res.status(401).json({ error: 'Accès non autorisé.' });
 
-  if (resource === 'stats') {
+    if (resource === 'stats') {
     // GET /api/admin/stats
     try {
       const { data: orders } = await supabase.from('commandes').select('total_ttc, date_commande, statut');
@@ -176,7 +178,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.error(err);
       return res.status(500).json({ error: 'Erreur lors de la récupération des produits.' });
     }
-  } else {
-    return res.status(404).json({ error: 'Resource not found' });
+    } else {
+      return res.status(404).json({ error: 'Resource not found' });
+    }
+  } catch (err: any) {
+    console.error('Admin API Error:', err);
+    return res.status(500).json({ 
+      error: 'Erreur interne du serveur.',
+      details: err.message || 'Unknown error'
+    });
   }
 }
