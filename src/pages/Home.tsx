@@ -227,9 +227,9 @@ const Home: React.FC = () => {
             className="h-[400px] md:h-auto overflow-hidden"
           >
             <img 
-              src="/bijoux-presentation.jpg" 
-              alt="Bijoux en acier inoxydable" 
-              className="w-full h-full object-cover"
+              src="/bijoux.jfif" 
+              alt="Bijoux de luxe en acier inoxydable" 
+              className="w-full h-[400px] object-cover"
               referrerPolicy="no-referrer"
             />
           </motion.div>
@@ -285,9 +285,9 @@ const Home: React.FC = () => {
             className="h-[400px] md:h-auto overflow-hidden order-1 md:order-2"
           >
             <img 
-              src="/montres-presentation.jpg" 
-              alt="Montres élégantes" 
-              className="w-full h-full object-cover"
+              src="/montres.jfif" 
+              alt="Montre élégante de prestige" 
+              className="w-full h-[400px] object-cover"
               referrerPolicy="no-referrer"
             />
           </motion.div>
@@ -303,9 +303,9 @@ const Home: React.FC = () => {
             className="h-[400px] md:h-auto overflow-hidden"
           >
             <img 
-              src="/accessoires-presentation.jpg" 
-              alt="Accessoires et plus" 
-              className="w-full h-full object-cover"
+              src="/accessoires.jpg" 
+              alt="Coffret cadeau accessoires de mode" 
+              className="w-full h-[400px] object-cover"
               referrerPolicy="no-referrer"
             />
           </motion.div>
