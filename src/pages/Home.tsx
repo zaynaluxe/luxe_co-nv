@@ -217,7 +217,7 @@ const Home: React.FC = () => {
 
       {/* Brand Presentation Section */}
       <section className="bg-[#0a0a0a] py-0 overflow-hidden">
-        {/* Bloc 1: L'ART DE LA BIJOUTERIE */}
+        {/* Bloc 1: BIJOUX */}
         <div className="grid grid-cols-1 md:grid-cols-2 min-h-[400px]">
           <motion.div 
             initial={{ opacity: 0, x: -50 }}
@@ -227,8 +227,8 @@ const Home: React.FC = () => {
             className="h-[400px] md:h-auto overflow-hidden"
           >
             <img 
-              src="https://images.unsplash.com/photo-1611591437281-460bfbe1220a?w=800" 
-              alt="L'Art de la Bijouterie" 
+              src="/bijoux-presentation.jpg" 
+              alt="Bijoux en acier inoxydable" 
               className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
             />
@@ -240,25 +240,22 @@ const Home: React.FC = () => {
             transition={{ duration: 0.8 }}
             className="flex flex-col justify-center p-8 md:p-16 lg:p-24 space-y-6"
           >
-            <div className="space-y-2">
-              <p className="text-[#C9A227] uppercase tracking-[0.3em] text-xs font-medium">Chaque pièce raconte une histoire</p>
-              <h2 className="text-3xl md:text-4xl font-serif tracking-widest uppercase text-white">L'ART DE LA BIJOUTERIE</h2>
-            </div>
+            <h2 className="text-3xl md:text-4xl font-serif tracking-widest uppercase text-white">BIJOUX EN ACIER INOXYDABLE 316L</h2>
             <p className="text-gray-400 text-sm md:text-base leading-relaxed uppercase tracking-wider">
-              Nos bijoux en acier inoxydable 316L sont conçus pour traverser le temps. Hypoallergéniques, résistants à l'eau et au quotidien, ils allient élégance et durabilité.
+              Nos bijoux sont hypoallergéniques, ne noircissent pas, résistent à l'eau et au quotidien. Parfaits pour toutes les occasions.
             </p>
             <div>
               <Link 
-                to="/boutique" 
+                to="/boutique?cat=Accessoires" 
                 className="inline-block bg-[#C9A227] text-black px-10 py-4 uppercase tracking-widest font-bold text-xs hover:bg-[#b08e22] transition-colors"
               >
-                DÉCOUVRIR
+                VOIR LES BIJOUX
               </Link>
             </div>
           </motion.div>
         </div>
 
-        {/* Bloc 2: LIVRAISON AU MAROC */}
+        {/* Bloc 2: MONTRES */}
         <div className="grid grid-cols-1 md:grid-cols-2 min-h-[400px]">
           <motion.div 
             initial={{ opacity: 0, x: -50 }}
@@ -267,10 +264,18 @@ const Home: React.FC = () => {
             transition={{ duration: 0.8 }}
             className="flex flex-col justify-center p-8 md:p-16 lg:p-24 space-y-6 order-2 md:order-1"
           >
-            <h2 className="text-3xl md:text-4xl font-serif tracking-widest uppercase text-white">LIVRAISON AU MAROC</h2>
+            <h2 className="text-3xl md:text-4xl font-serif tracking-widest uppercase text-white">MONTRES ÉLÉGANTES</h2>
             <p className="text-gray-400 text-sm md:text-base leading-relaxed uppercase tracking-wider">
-              Commandez depuis n'importe quelle ville du Maroc et recevez vos bijoux en 24h à 72h. Emballage cadeau offert.
+              Des montres en acier inoxydable alliant style et précision. Pour l'homme et la femme qui veulent marquer leur présence.
             </p>
+            <div>
+              <Link 
+                to="/boutique?cat=Montres" 
+                className="inline-block bg-[#C9A227] text-black px-10 py-4 uppercase tracking-widest font-bold text-xs hover:bg-[#b08e22] transition-colors"
+              >
+                VOIR LES MONTRES
+              </Link>
+            </div>
           </motion.div>
           <motion.div 
             initial={{ opacity: 0, x: 50 }}
@@ -280,15 +285,15 @@ const Home: React.FC = () => {
             className="h-[400px] md:h-auto overflow-hidden order-1 md:order-2"
           >
             <img 
-              src="https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=800" 
-              alt="Livraison au Maroc" 
+              src="/montres-presentation.jpg" 
+              alt="Montres élégantes" 
               className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
             />
           </motion.div>
         </div>
 
-        {/* Bloc 3: QUALITÉ PREMIUM */}
+        {/* Bloc 3: ACCESSOIRES */}
         <div className="grid grid-cols-1 md:grid-cols-2 min-h-[400px]">
           <motion.div 
             initial={{ opacity: 0, x: -50 }}
@@ -298,8 +303,8 @@ const Home: React.FC = () => {
             className="h-[400px] md:h-auto overflow-hidden"
           >
             <img 
-              src="https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=800" 
-              alt="Qualité Premium" 
+              src="/accessoires-presentation.jpg" 
+              alt="Accessoires et plus" 
               className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
             />
@@ -311,10 +316,18 @@ const Home: React.FC = () => {
             transition={{ duration: 0.8 }}
             className="flex flex-col justify-center p-8 md:p-16 lg:p-24 space-y-6"
           >
-            <h2 className="text-3xl md:text-4xl font-serif tracking-widest uppercase text-white">QUALITÉ PREMIUM</h2>
+            <h2 className="text-3xl md:text-4xl font-serif tracking-widest uppercase text-white">ACCESSOIRES & PLUS</h2>
             <p className="text-gray-400 text-sm md:text-base leading-relaxed uppercase tracking-wider">
-              Acier inoxydable 316L certifié, plaqué or 18 carats, résistant à la corrosion et aux allergies.
+              Découvrez notre collection complète : sacs, parfums, cosmétiques et vêtements. Tout ce dont vous avez besoin pour un style complet.
             </p>
+            <div>
+              <Link 
+                to="/boutique" 
+                className="inline-block bg-[#C9A227] text-black px-10 py-4 uppercase tracking-widest font-bold text-xs hover:bg-[#b08e22] transition-colors"
+              >
+                VOIR TOUT
+              </Link>
+            </div>
           </motion.div>
         </div>
       </section>
