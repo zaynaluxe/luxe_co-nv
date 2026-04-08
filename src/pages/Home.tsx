@@ -218,18 +218,18 @@ const Home: React.FC = () => {
       {/* Brand Presentation Section */}
       <section className="bg-[#0a0a0a] py-0 overflow-hidden">
         {/* Bloc 1: BIJOUX */}
-        <div className="grid grid-cols-1 md:grid-cols-2 min-h-[400px]">
+        <div className="flex flex-row md:grid md:grid-cols-2 min-h-[200px] md:min-h-[400px]">
           <motion.div 
             initial={{ opacity: 0, x: -50 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
-            className="h-[400px] md:h-auto overflow-hidden"
+            className="w-[45%] md:w-auto h-[200px] md:h-auto overflow-hidden flex-shrink-0"
           >
             <img 
-              src="/bijoux.jfif" 
+              src="https://res.cloudinary.com/dznwuewea/image/upload/v1775676251/bijoux_ru6bqh.jpg" 
               alt="Bijoux de luxe en acier inoxydable" 
-              className="w-full h-[400px] object-cover"
+              className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
             />
           </motion.div>
@@ -238,16 +238,16 @@ const Home: React.FC = () => {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
-            className="flex flex-col justify-center p-8 md:p-16 lg:p-24 space-y-6"
+            className="w-[55%] md:w-auto flex flex-col justify-center items-center text-center p-3 md:p-16 lg:p-24 space-y-2 md:space-y-6"
           >
-            <h2 className="text-3xl md:text-4xl font-serif tracking-widest uppercase text-white">BIJOUX EN ACIER INOXYDABLE 316L</h2>
-            <p className="text-gray-400 text-sm md:text-base leading-relaxed uppercase tracking-wider">
+            <h2 className="text-base md:text-4xl font-serif tracking-widest uppercase text-white">BIJOUX EN ACIER INOXYDABLE 316L</h2>
+            <p className="text-gray-400 text-[0.75rem] md:text-base leading-relaxed uppercase tracking-wider">
               Nos bijoux sont hypoallergéniques, ne noircissent pas, résistent à l'eau et au quotidien. Parfaits pour toutes les occasions.
             </p>
             <div>
               <Link 
                 to="/boutique?cat=Accessoires" 
-                className="inline-block bg-[#C9A227] text-black px-10 py-4 uppercase tracking-widest font-bold text-xs hover:bg-[#b08e22] transition-colors"
+                className="inline-block bg-[#C9A227] text-black px-3 py-1.5 md:px-10 md:py-4 uppercase tracking-widest font-bold text-[0.7rem] md:text-xs hover:bg-[#b08e22] transition-colors"
               >
                 VOIR LES BIJOUX
               </Link>
@@ -256,56 +256,56 @@ const Home: React.FC = () => {
         </div>
 
         {/* Bloc 2: MONTRES */}
-        <div className="grid grid-cols-1 md:grid-cols-2 min-h-[400px]">
+        <div className="flex flex-row-reverse min-h-[200px] md:min-h-[400px]">
           <motion.div 
             initial={{ opacity: 0, x: -50 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
-            className="flex flex-col justify-center p-8 md:p-16 lg:p-24 space-y-6 order-2 md:order-1"
+            className="w-[45%] md:w-auto h-[200px] md:h-auto overflow-hidden flex-shrink-0"
           >
-            <h2 className="text-3xl md:text-4xl font-serif tracking-widest uppercase text-white">MONTRES ÉLÉGANTES</h2>
-            <p className="text-gray-400 text-sm md:text-base leading-relaxed uppercase tracking-wider">
+            <img 
+              src="https://res.cloudinary.com/dznwuewea/image/upload/v1775676251/montres_eszuie.jpg" 
+              alt="Montre élégante de prestige" 
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+          </motion.div>
+          <motion.div 
+            initial={{ opacity: 0, x: 50 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+            className="w-[55%] md:w-auto flex flex-col justify-center items-center text-center p-3 md:p-16 lg:p-24 space-y-2 md:space-y-6"
+          >
+            <h2 className="text-base md:text-4xl font-serif tracking-widest uppercase text-white">MONTRES ÉLÉGANTES</h2>
+            <p className="text-gray-400 text-[0.75rem] md:text-base leading-relaxed uppercase tracking-wider">
               Des montres en acier inoxydable alliant style et précision. Pour l'homme et la femme qui veulent marquer leur présence.
             </p>
             <div>
               <Link 
                 to="/boutique?cat=Montres" 
-                className="inline-block bg-[#C9A227] text-black px-10 py-4 uppercase tracking-widest font-bold text-xs hover:bg-[#b08e22] transition-colors"
+                className="inline-block bg-[#C9A227] text-black px-3 py-1.5 md:px-10 md:py-4 uppercase tracking-widest font-bold text-[0.7rem] md:text-xs hover:bg-[#b08e22] transition-colors"
               >
                 VOIR LES MONTRES
               </Link>
             </div>
           </motion.div>
-          <motion.div 
-            initial={{ opacity: 0, x: 50 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
-            className="h-[400px] md:h-auto overflow-hidden order-1 md:order-2"
-          >
-            <img 
-              src="/montres.jfif" 
-              alt="Montre élégante de prestige" 
-              className="w-full h-[400px] object-cover"
-              referrerPolicy="no-referrer"
-            />
-          </motion.div>
         </div>
 
         {/* Bloc 3: ACCESSOIRES */}
-        <div className="grid grid-cols-1 md:grid-cols-2 min-h-[400px]">
+        <div className="flex flex-row md:grid md:grid-cols-2 min-h-[200px] md:min-h-[400px]">
           <motion.div 
             initial={{ opacity: 0, x: -50 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
-            className="h-[400px] md:h-auto overflow-hidden"
+            className="w-[45%] md:w-auto h-[200px] md:h-auto overflow-hidden flex-shrink-0"
           >
             <img 
-              src="/accessoires.jpg" 
+              src="https://res.cloudinary.com/dznwuewea/image/upload/v1775676251/accessoires_ce7wmq.jpg" 
               alt="Coffret cadeau accessoires de mode" 
-              className="w-full h-[400px] object-cover"
+              className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
             />
           </motion.div>
@@ -314,16 +314,16 @@ const Home: React.FC = () => {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
-            className="flex flex-col justify-center p-8 md:p-16 lg:p-24 space-y-6"
+            className="w-[55%] md:w-auto flex flex-col justify-center items-center text-center p-3 md:p-16 lg:p-24 space-y-2 md:space-y-6"
           >
-            <h2 className="text-3xl md:text-4xl font-serif tracking-widest uppercase text-white">ACCESSOIRES & PLUS</h2>
-            <p className="text-gray-400 text-sm md:text-base leading-relaxed uppercase tracking-wider">
+            <h2 className="text-base md:text-4xl font-serif tracking-widest uppercase text-white">ACCESSOIRES & PLUS</h2>
+            <p className="text-gray-400 text-[0.75rem] md:text-base leading-relaxed uppercase tracking-wider">
               Découvrez notre collection complète : sacs, parfums, cosmétiques et vêtements. Tout ce dont vous avez besoin pour un style complet.
             </p>
             <div>
               <Link 
                 to="/boutique" 
-                className="inline-block bg-[#C9A227] text-black px-10 py-4 uppercase tracking-widest font-bold text-xs hover:bg-[#b08e22] transition-colors"
+                className="inline-block bg-[#C9A227] text-black px-3 py-1.5 md:px-10 md:py-4 uppercase tracking-widest font-bold text-[0.7rem] md:text-xs hover:bg-[#b08e22] transition-colors"
               >
                 VOIR TOUT
               </Link>
