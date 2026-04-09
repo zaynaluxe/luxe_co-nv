@@ -215,120 +215,130 @@ const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* Brand Presentation Section */}
-      <section className="bg-[#0a0a0a] py-0 overflow-hidden">
-        {/* Bloc 1: BIJOUX */}
-        <div className="flex flex-row md:grid md:grid-cols-2 min-h-[200px] md:min-h-[400px]">
-          <motion.div 
-            initial={{ opacity: 0, x: -50 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
-            className="w-[45%] md:w-auto h-[200px] md:h-auto overflow-hidden flex-shrink-0"
-          >
-            <img 
-              src="https://res.cloudinary.com/dznwuewea/image/upload/v1775676251/bijoux_ru6bqh.jpg" 
-              alt="Bijoux de luxe en acier inoxydable" 
-              className="w-full h-full object-cover"
-              referrerPolicy="no-referrer"
-            />
-          </motion.div>
-          <motion.div 
-            initial={{ opacity: 0, x: 50 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
-            className="w-[55%] md:w-auto flex flex-col justify-center items-center text-center p-3 md:p-16 lg:p-24 space-y-2 md:space-y-6"
-          >
-            <h2 className="text-base md:text-4xl font-serif tracking-widest uppercase text-white">BIJOUX EN ACIER INOXYDABLE 316L</h2>
-            <p className="text-gray-400 text-[0.75rem] md:text-base leading-relaxed uppercase tracking-wider">
-              Nos bijoux sont hypoallergéniques, ne noircissent pas, résistent à l'eau et au quotidien. Parfaits pour toutes les occasions.
-            </p>
-            <div>
-              <Link 
-                to="/boutique?cat=Accessoires" 
-                className="inline-block bg-[#C9A227] text-black px-3 py-1.5 md:px-10 md:py-4 uppercase tracking-widest font-bold text-[0.7rem] md:text-xs hover:bg-[#b08e22] transition-colors"
-              >
-                VOIR LES BIJOUX
-              </Link>
-            </div>
-          </motion.div>
+      {/* Brand Presentation Sections */}
+      {/* Section 1: BIJOUX */}
+      <section className="bg-[#0a0a0a] py-[60px] overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row items-center gap-8 md:gap-16">
+            <motion.div 
+              initial={{ opacity: 0, x: -50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+              className="w-full md:w-1/2 h-[350px] md:h-[500px] overflow-hidden flex-shrink-0"
+            >
+              <img 
+                src="https://res.cloudinary.com/dznwuewea/image/upload/v1775676251/bijoux_ru6bqh.jpg" 
+                alt="Bijoux de luxe en acier inoxydable" 
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+            </motion.div>
+            <motion.div 
+              initial={{ opacity: 0, x: 50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+              className="w-full md:w-1/2 flex flex-col justify-center items-center text-center space-y-4 md:space-y-6"
+            >
+              <h2 className="text-2xl md:text-4xl font-serif tracking-widest uppercase text-white">BIJOUX EN ACIER INOXYDABLE 316L</h2>
+              <p className="text-gray-400 text-sm md:text-base leading-relaxed uppercase tracking-wider">
+                Nos bijoux sont hypoallergéniques, ne noircissent pas, résistent à l'eau et au quotidien. Parfaits pour toutes les occasions.
+              </p>
+              <div>
+                <Link 
+                  to="/boutique?cat=Accessoires" 
+                  className="inline-block bg-[#C9A227] text-black px-8 py-4 md:px-10 md:py-4 uppercase tracking-widest font-bold text-xs hover:bg-[#b08e22] transition-colors"
+                >
+                  VOIR LES BIJOUX
+                </Link>
+              </div>
+            </motion.div>
+          </div>
         </div>
+      </section>
 
-        {/* Bloc 2: MONTRES */}
-        <div className="flex flex-row-reverse min-h-[200px] md:min-h-[400px]">
-          <motion.div 
-            initial={{ opacity: 0, x: -50 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
-            className="w-[45%] md:w-auto h-[200px] md:h-auto overflow-hidden flex-shrink-0"
-          >
-            <img 
-              src="https://res.cloudinary.com/dznwuewea/image/upload/v1775676251/montres_eszuie.jpg" 
-              alt="Montre élégante de prestige" 
-              className="w-full h-full object-cover"
-              referrerPolicy="no-referrer"
-            />
-          </motion.div>
-          <motion.div 
-            initial={{ opacity: 0, x: 50 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
-            className="w-[55%] md:w-auto flex flex-col justify-center items-center text-center p-3 md:p-16 lg:p-24 space-y-2 md:space-y-6"
-          >
-            <h2 className="text-base md:text-4xl font-serif tracking-widest uppercase text-white">MONTRES ÉLÉGANTES</h2>
-            <p className="text-gray-400 text-[0.75rem] md:text-base leading-relaxed uppercase tracking-wider">
-              Des montres en acier inoxydable alliant style et précision. Pour l'homme et la femme qui veulent marquer leur présence.
-            </p>
-            <div>
-              <Link 
-                to="/boutique?cat=Montres" 
-                className="inline-block bg-[#C9A227] text-black px-3 py-1.5 md:px-10 md:py-4 uppercase tracking-widest font-bold text-[0.7rem] md:text-xs hover:bg-[#b08e22] transition-colors"
-              >
-                VOIR LES MONTRES
-              </Link>
-            </div>
-          </motion.div>
+      {/* Section 2: MONTRES */}
+      <section className="bg-[#111111] py-[60px] overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row-reverse items-center gap-8 md:gap-16">
+            <motion.div 
+              initial={{ opacity: 0, x: 50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+              className="w-full md:w-1/2 h-[350px] md:h-[500px] overflow-hidden flex-shrink-0"
+            >
+              <img 
+                src="https://res.cloudinary.com/dznwuewea/image/upload/v1775676251/montres_eszuie.jpg" 
+                alt="Montre élégante de prestige" 
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+            </motion.div>
+            <motion.div 
+              initial={{ opacity: 0, x: -50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+              className="w-full md:w-1/2 flex flex-col justify-center items-center text-center space-y-4 md:space-y-6"
+            >
+              <h2 className="text-2xl md:text-4xl font-serif tracking-widest uppercase text-white">MONTRES ÉLÉGANTES</h2>
+              <p className="text-gray-400 text-sm md:text-base leading-relaxed uppercase tracking-wider">
+                Des montres en acier inoxydable alliant style et précision. Pour l'homme et la femme qui veulent marquer leur présence.
+              </p>
+              <div>
+                <Link 
+                  to="/boutique?cat=Montres" 
+                  className="inline-block bg-[#C9A227] text-black px-8 py-4 md:px-10 md:py-4 uppercase tracking-widest font-bold text-xs hover:bg-[#b08e22] transition-colors"
+                >
+                  VOIR LES MONTRES
+                </Link>
+              </div>
+            </motion.div>
+          </div>
         </div>
+      </section>
 
-        {/* Bloc 3: ACCESSOIRES */}
-        <div className="flex flex-row md:grid md:grid-cols-2 min-h-[200px] md:min-h-[400px]">
-          <motion.div 
-            initial={{ opacity: 0, x: -50 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
-            className="w-[45%] md:w-auto h-[200px] md:h-auto overflow-hidden flex-shrink-0"
-          >
-            <img 
-              src="https://res.cloudinary.com/dznwuewea/image/upload/v1775676251/accessoires_ce7wmq.jpg" 
-              alt="Coffret cadeau accessoires de mode" 
-              className="w-full h-full object-cover"
-              referrerPolicy="no-referrer"
-            />
-          </motion.div>
-          <motion.div 
-            initial={{ opacity: 0, x: 50 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
-            className="w-[55%] md:w-auto flex flex-col justify-center items-center text-center p-3 md:p-16 lg:p-24 space-y-2 md:space-y-6"
-          >
-            <h2 className="text-base md:text-4xl font-serif tracking-widest uppercase text-white">ACCESSOIRES & PLUS</h2>
-            <p className="text-gray-400 text-[0.75rem] md:text-base leading-relaxed uppercase tracking-wider">
-              Découvrez notre collection complète : sacs, parfums, cosmétiques et vêtements. Tout ce dont vous avez besoin pour un style complet.
-            </p>
-            <div>
-              <Link 
-                to="/boutique" 
-                className="inline-block bg-[#C9A227] text-black px-3 py-1.5 md:px-10 md:py-4 uppercase tracking-widest font-bold text-[0.7rem] md:text-xs hover:bg-[#b08e22] transition-colors"
-              >
-                VOIR TOUT
-              </Link>
-            </div>
-          </motion.div>
+      {/* Section 3: ACCESSOIRES */}
+      <section className="bg-[#0a0a0a] py-[60px] overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row items-center gap-8 md:gap-16">
+            <motion.div 
+              initial={{ opacity: 0, x: -50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+              className="w-full md:w-1/2 h-[350px] md:h-[500px] overflow-hidden flex-shrink-0"
+            >
+              <img 
+                src="https://res.cloudinary.com/dznwuewea/image/upload/v1775676251/accessoires_ce7wmq.jpg" 
+                alt="Coffret cadeau accessoires de mode" 
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+            </motion.div>
+            <motion.div 
+              initial={{ opacity: 0, x: 50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+              className="w-full md:w-1/2 flex flex-col justify-center items-center text-center space-y-4 md:space-y-6"
+            >
+              <h2 className="text-2xl md:text-4xl font-serif tracking-widest uppercase text-white">ACCESSOIRES & PLUS</h2>
+              <p className="text-gray-400 text-sm md:text-base leading-relaxed uppercase tracking-wider">
+                Découvrez notre collection complète : sacs, parfums, cosmétiques et vêtements. Tout ce dont vous avez besoin pour un style complet.
+              </p>
+              <div>
+                <Link 
+                  to="/boutique" 
+                  className="inline-block bg-[#C9A227] text-black px-8 py-4 md:px-10 md:py-4 uppercase tracking-widest font-bold text-xs hover:bg-[#b08e22] transition-colors"
+                >
+                  VOIR TOUT
+                </Link>
+              </div>
+            </motion.div>
+          </div>
         </div>
       </section>
 
