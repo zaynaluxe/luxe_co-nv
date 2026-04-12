@@ -62,6 +62,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             nom, 
             prix_base, 
             slug, 
+            categorie_id,
             image_principale_url, 
             categories (nom)
           `)
@@ -100,6 +101,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             description, 
             prix_base, 
             slug, 
+            categorie_id,
             image_principale_url, 
             images_urls,
             sections,

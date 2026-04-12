@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { ShoppingBag, ShieldCheck, Truck, RotateCcw, ArrowRight } from 'lucide-react';
 import { formatPrice } from '../utils';
@@ -17,6 +17,53 @@ interface Product {
 const Home: React.FC = () => {
   const [newArrivals, setNewArrivals] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  const slides = [
+    {
+      image: 'https://res.cloudinary.com/dznwuewea/image/upload/v1776028497/bijoux_2_ech5tt.jpg',
+      badge: 'COLLECTION PRINTEMPS 2026',
+      title1: 'ÉLÉGANCE',
+      title2: 'INALTÉRABLE',
+      description: 'Découvrez nos bijoux en acier inoxydable 316L. Conçus pour durer, pensés pour briller.',
+      button: 'DÉCOUVRIR LES BIJOUX',
+      link: '/boutique?cat=Accessoires'
+    },
+    {
+      image: 'https://res.cloudinary.com/dznwuewea/image/upload/v1776028498/montre_wzaoa1.jpg',
+      badge: 'NOUVELLE COLLECTION',
+      title1: 'MONTRES',
+      title2: 'ÉLÉGANTES',
+      description: 'Des montres en acier inoxydable pour homme et femme. Style et précision au quotidien.',
+      button: 'VOIR LES MONTRES',
+      link: '/boutique?cat=Montres'
+    },
+    {
+      image: 'https://res.cloudinary.com/dznwuewea/image/upload/v1776028497/sac_et_accessoires_twu3jv.jpg',
+      badge: 'TENDANCE 2026',
+      title1: 'SACS &',
+      title2: 'ACCESSOIRES',
+      description: 'Des sacs et accessoires haut de gamme pour compléter votre style.',
+      button: 'DÉCOUVRIR',
+      link: '/boutique'
+    },
+    {
+      image: 'https://res.cloudinary.com/dznwuewea/image/upload/v1776028982/Sara_s_Imitation_Jewelry_Cosmetics_brnzjz.jpg',
+      badge: 'BEAUTÉ & STYLE',
+      title1: 'PARFUMS &',
+      title2: 'COSMÉTIQUES',
+      description: 'Une sélection exclusive de parfums et cosmétiques pour sublimer votre quotidien.',
+      button: 'EXPLORER',
+      link: '/boutique'
+    }
+  ];
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % slides.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [slides.length]);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -62,64 +109,75 @@ const Home: React.FC = () => {
     <div className="bg-[#050505] text-white">
       {/* Hero Section */}
       <section className="relative h-screen flex items-center justify-center overflow-hidden">
-        <div className="absolute inset-0 z-0">
-          <motion.img 
-            initial={{ scale: 1 }}
-            animate={{ scale: 1.1 }}
-            transition={{ duration: 8, ease: "easeOut" }}
-            src="https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=1200" 
-            alt="Jewelry Background" 
-            className="w-full h-full object-cover"
-            referrerPolicy="no-referrer"
-          />
-          <div className="absolute inset-0 bg-black/65"></div>
-        </div>
-
-        <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
-          <motion.p 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="text-[#C9A227] uppercase tracking-[0.5em] text-xs sm:text-sm mb-6 font-medium"
-          >
-            Collection Printemps 2026
-          </motion.p>
-          <motion.h1 
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1, delay: 0.5, ease: "easeOut" }}
-            className="text-[2.5rem] sm:text-7xl md:text-8xl font-serif text-white tracking-widest uppercase mb-8 leading-tight"
-          >
-            Élégance <br /> <span className="text-[#C9A227]">Inaltérable</span>
-          </motion.h1>
-          <motion.p 
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.7 }}
-            className="text-gray-400 text-sm sm:text-base uppercase tracking-widest mb-12 max-w-2xl mx-auto leading-relaxed px-4"
-          >
-            Découvrez nos bijoux en acier inoxydable 316L. <br /> Conçus pour durer, pensés pour briller.
-          </motion.p>
-          <motion.div
+        <AnimatePresence mode="wait">
+          <motion.div 
+            key={currentSlide}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 1, delay: 1 }}
-            className="px-4"
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1 }}
+            className="absolute inset-0 z-0"
           >
-            <Link 
-              to="/boutique" 
-              className="inline-block w-full sm:w-auto bg-[#C9A227] text-black px-12 py-5 uppercase tracking-[0.3em] font-bold text-sm hover:bg-[#b08e22] transition-all transform hover:scale-105 text-center"
+            <div 
+              className="w-full h-full bg-cover bg-center transition-transform duration-[8000ms] ease-out scale-110"
+              style={{ 
+                backgroundImage: `url(${slides[currentSlide].image})`,
+              }}
             >
-              Découvrir la collection
-            </Link>
+              <div className="absolute inset-0 bg-black/55"></div>
+            </div>
           </motion.div>
+        </AnimatePresence>
+
+        <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentSlide}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.8 }}
+            >
+              <p className="text-[#C9A227] uppercase tracking-[0.5em] text-xs sm:text-sm mb-6 font-medium">
+                {slides[currentSlide].badge}
+              </p>
+              <h1 className="text-[2.5rem] sm:text-7xl md:text-8xl font-serif text-white tracking-widest uppercase mb-8 leading-tight">
+                {slides[currentSlide].title1} <br /> <span className="text-[#C9A227]">{slides[currentSlide].title2}</span>
+              </h1>
+              <p className="text-gray-400 text-sm sm:text-base uppercase tracking-widest mb-12 max-w-2xl mx-auto leading-relaxed px-4">
+                {slides[currentSlide].description}
+              </p>
+              <div className="px-4">
+                <Link 
+                  to={slides[currentSlide].link} 
+                  className="inline-block w-full sm:w-auto bg-[#C9A227] text-black px-12 py-5 uppercase tracking-[0.3em] font-bold text-sm hover:bg-[#b08e22] transition-all transform hover:scale-105 text-center"
+                >
+                  {slides[currentSlide].button}
+                </Link>
+              </div>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        {/* Navigation Dots */}
+        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 flex gap-3">
+          {slides.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => setCurrentSlide(index)}
+              className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                currentSlide === index ? 'bg-[#C9A227] w-8' : 'bg-white/30 hover:bg-white/50'
+              }`}
+              aria-label={`Go to slide ${index + 1}`}
+            />
+          ))}
         </div>
 
         {/* Scroll Indicator */}
         <motion.div 
           animate={{ y: [0, 10, 0] }}
           transition={{ repeat: Infinity, duration: 2 }}
-          className="absolute bottom-10 left-1/2 -translate-x-1/2 text-[#C9A227]/50"
+          className="absolute bottom-24 left-1/2 -translate-x-1/2 text-[#C9A227]/50 hidden sm:block"
         >
           <div className="w-[1px] h-12 bg-gradient-to-b from-[#C9A227] to-transparent"></div>
         </motion.div>

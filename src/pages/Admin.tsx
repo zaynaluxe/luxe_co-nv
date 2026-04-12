@@ -1046,8 +1046,8 @@ export const AdminProducts: React.FC = () => {
                       <input 
                         type="number" 
                         min="1"
-                        value={formData.prix_base}
-                        onChange={e => setFormData({...formData, prix_base: Number(e.target.value)})}
+                        value={isNaN(formData.prix_base) ? '' : formData.prix_base}
+                        onChange={e => setFormData({...formData, prix_base: e.target.value === '' ? 0 : Number(e.target.value)})}
                         className="w-full bg-black border border-gray-800 p-3 text-white focus:border-[#C9A227] outline-none" 
                         required
                       />
@@ -1056,10 +1056,15 @@ export const AdminProducts: React.FC = () => {
                       <label className="block text-xs uppercase tracking-widest text-gray-400 mb-2">Catégorie</label>
                       <select 
                         value={formData.categorie_id || ''}
-                        onChange={e => setFormData({...formData, categorie_id: Number(e.target.value)})}
+                        onChange={e => {
+                          e.stopPropagation();
+                          console.log('Catégorie sélectionnée:', e.target.value);
+                          setFormData(prev => ({ ...prev, categorie_id: e.target.value }));
+                        }}
                         className="w-full bg-black border border-gray-800 p-3 text-white focus:border-[#C9A227] outline-none"
                         required
                       >
+                        <option value="" disabled>Sélectionner une catégorie</option>
                         {categories.map(c => (
                           <option key={c.id} value={c.id}>{c.nom}</option>
                         ))}
@@ -1699,8 +1704,8 @@ export const AdminPromos: React.FC = () => {
                   <label className="block text-xs uppercase tracking-widest text-gray-400 mb-2">Valeur</label>
                   <input 
                     type="number" 
-                    value={formData.valeur_remise}
-                    onChange={e => setFormData({...formData, valeur_remise: Number(e.target.value)})}
+                    value={isNaN(formData.valeur_remise) ? '' : formData.valeur_remise}
+                    onChange={e => setFormData({...formData, valeur_remise: e.target.value === '' ? 0 : Number(e.target.value)})}
                     className="w-full bg-black border border-gray-800 p-3 text-white focus:border-[#C9A227] outline-none" 
                     required
                   />
@@ -1719,8 +1724,8 @@ export const AdminPromos: React.FC = () => {
                   <label className="block text-xs uppercase tracking-widest text-gray-400 mb-2">Nb utilisations max</label>
                   <input 
                     type="number" 
-                    value={formData.usage_max}
-                    onChange={e => setFormData({...formData, usage_max: Number(e.target.value)})}
+                    value={isNaN(formData.usage_max) ? '' : formData.usage_max}
+                    onChange={e => setFormData({...formData, usage_max: e.target.value === '' ? 0 : Number(e.target.value)})}
                     className="w-full bg-black border border-gray-800 p-3 text-white focus:border-[#C9A227] outline-none" 
                     required
                   />

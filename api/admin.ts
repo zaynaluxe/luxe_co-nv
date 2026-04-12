@@ -62,14 +62,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (!resource) {
     // Fallback for direct calls if rewrites are not used
-    // /api/admin/orders -> urlParts: ['', 'api', 'admin', 'orders']
     if (urlParts[1] === 'api' && urlParts[2] === 'admin') {
       resource = urlParts[3];
       id = urlParts[4];
     } else if (urlParts[1] === 'admin') {
-      // /admin/orders
       resource = urlParts[2];
       id = urlParts[3];
+    } else if (urlParts[1] && urlParts[1] !== 'api') {
+      // Handle cases where the path is relative to /api/admin (Express app.use)
+      // e.g. /stats -> urlParts: ['', 'stats']
+      resource = urlParts[1];
+      id = urlParts[2];
     }
   }
 
