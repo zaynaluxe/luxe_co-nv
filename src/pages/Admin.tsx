@@ -570,7 +570,7 @@ export const AdminProducts: React.FC = () => {
     const files = e.target.files;
     if (!files) return;
     
-    const remainingSlots = 6 - formData.images_urls.length;
+    const remainingSlots = 20 - formData.images_urls.length;
     const filesToUpload = Array.from(files).slice(0, remainingSlots);
     
     if (filesToUpload.length === 0) return;
@@ -691,7 +691,7 @@ export const AdminProducts: React.FC = () => {
   const addVariant = () => {
     setFormData(prev => ({
       ...prev,
-      variantes: [...prev.variantes, { valeur_variante: '', prix_supplementaire: 0, stock: 0, image_variante_url: '' }]
+      variantes: [...prev.variantes, { valeur: '', prix_supp: 0, stock: 0, image: '' }]
     }));
   };
 
@@ -736,7 +736,7 @@ export const AdminProducts: React.FC = () => {
         setFormData(prev => ({
           ...prev,
           variantes: prev.variantes.map((variant, i) => 
-            i === index ? { ...variant, image_variante_url: url } : variant
+            i === index ? { ...variant, image: url } : variant
           )
         }));
       }
@@ -768,6 +768,7 @@ export const AdminProducts: React.FC = () => {
         },
         body: JSON.stringify({
           ...formData,
+          variantes: formData.variantes,
           slug: formData.slug || formData.nom.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '')
         })
       });
@@ -776,6 +777,28 @@ export const AdminProducts: React.FC = () => {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Erreur lors de l\'enregistrement');
       }
+
+      const savedProduct = await response.json();
+      const productId = editingProduct ? editingProduct.id : savedProduct.id;
+
+      // Sauvegarde des variantes
+      console.log('Sauvegarde des variantes pour le produit:', productId);
+      
+      // 1. Supprimer les anciennes variantes
+      await supabase.from('variantes_produits').delete().eq('produit_id', productId);
+      
+      // 2. Insérer les nouvelles variantes
+      for (const variante of formData.variantes) {
+        await supabase.from('variantes_produits').insert({
+          produit_id: productId,
+          nom_variante: 'Variante',
+          valeur_variante: variante.valeur,
+          prix_supplementaire: variante.prix_supp || 0,
+          stock: variante.stock || 0,
+          image_variante_url: variante.image || null
+        });
+      }
+      console.log('Variantes sauvegardées avec succès');
 
       toast.success(editingProduct ? 'Produit mis à jour' : 'Produit créé');
       setShowModal(false);
@@ -802,8 +825,29 @@ export const AdminProducts: React.FC = () => {
     }
   };
 
-  const openEdit = (product: AdminProduct) => {
+  const openEdit = async (product: AdminProduct) => {
     setEditingProduct(product);
+    
+    // Charger les variantes depuis Supabase
+    let productVariants = product.variantes || [];
+    try {
+      const { data: variantsData, error: variantsError } = await supabase
+        .from('variantes_produits')
+        .select('*')
+        .eq('produit_id', product.id);
+      
+      if (!variantsError && variantsData) {
+        productVariants = variantsData.map(v => ({
+          valeur: v.valeur_variante,
+          prix_supp: v.prix_supplementaire,
+          stock: v.stock,
+          image: v.image_variante_url
+        }));
+      }
+    } catch (err) {
+      console.error('Error fetching variants:', err);
+    }
+
     setFormData({
       nom: product.nom,
       slug: product.slug,
@@ -815,7 +859,7 @@ export const AdminProducts: React.FC = () => {
       est_actif: product.est_actif,
       est_en_vedette: product.est_en_vedette,
       texte_alignement: product.texte_alignement || 'left',
-      variantes: product.variantes || []
+      variantes: productVariants
     });
     setShowModal(true);
   };
@@ -1106,10 +1150,10 @@ export const AdminProducts: React.FC = () => {
 
                   <div>
                     <label className="block text-xs uppercase tracking-widest text-gray-400 mb-4">
-                      Photos du produit (Max 6)
+                      Photos du produit (Max 20)
                     </label>
                     
-                    <div className="grid grid-cols-3 gap-4 mb-6">
+                    <div className="grid gap-4 mb-6" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))' }}>
                       {formData.images_urls.map((url, index) => (
                         <div key={index} className="relative aspect-square group border border-white/10 rounded overflow-hidden">
                           <img src={url || null} alt={`Product ${index}`} className="w-full h-full object-cover" />
@@ -1129,9 +1173,9 @@ export const AdminProducts: React.FC = () => {
                         </div>
                       ))}
                       
-                      {formData.images_urls.length < 6 && (
+                      {formData.images_urls.length < 20 && (
                         <div 
-                          className="col-span-3 sm:col-span-1 aspect-square border-2 border-dashed border-gray-800 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-[#C9A227] hover:bg-[#C9A227]/5 transition-all group relative"
+                          className="aspect-square border-2 border-dashed border-gray-800 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-[#C9A227] hover:bg-[#C9A227]/5 transition-all group relative"
                           onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-[#C9A227]', 'bg-[#C9A227]/5'); }}
                           onDragLeave={(e) => { e.preventDefault(); e.currentTarget.classList.remove('border-[#C9A227]', 'bg-[#C9A227]/5'); }}
                           onDrop={(e) => {
@@ -1216,8 +1260,8 @@ export const AdminProducts: React.FC = () => {
                                 <label className="block text-[8px] uppercase text-gray-500 mb-1">Valeur (ex: Or, 30ml)</label>
                                 <input 
                                   type="text"
-                                  value={v.valeur_variante}
-                                  onChange={e => updateVariant(idx, 'valeur_variante', e.target.value)}
+                                  value={v.valeur || ''}
+                                  onChange={e => updateVariant(idx, 'valeur', e.target.value)}
                                   className="w-full bg-black border border-gray-800 p-2 text-[10px] text-white focus:border-[#C9A227] outline-none"
                                 />
                               </div>
@@ -1225,8 +1269,8 @@ export const AdminProducts: React.FC = () => {
                                 <label className="block text-[8px] uppercase text-gray-500 mb-1">Prix Supp. (MAD)</label>
                                 <input 
                                   type="number"
-                                  value={v.prix_supplementaire}
-                                  onChange={e => updateVariant(idx, 'prix_supplementaire', Number(e.target.value))}
+                                  value={v.prix_supp || 0}
+                                  onChange={e => updateVariant(idx, 'prix_supp', Number(e.target.value))}
                                   className="w-full bg-black border border-gray-800 p-2 text-[10px] text-white focus:border-[#C9A227] outline-none"
                                 />
                               </div>
@@ -1236,7 +1280,7 @@ export const AdminProducts: React.FC = () => {
                                 <label className="block text-[8px] uppercase text-gray-500 mb-1">Stock</label>
                                 <input 
                                   type="number"
-                                  value={v.stock}
+                                  value={v.stock || 0}
                                   onChange={e => updateVariant(idx, 'stock', Number(e.target.value))}
                                   className="w-full bg-black border border-gray-800 p-2 text-[10px] text-white focus:border-[#C9A227] outline-none"
                                 />
@@ -1244,8 +1288,8 @@ export const AdminProducts: React.FC = () => {
                               <div>
                                 <label className="block text-[8px] uppercase text-gray-500 mb-1">Image Variante</label>
                                 <div className="relative h-10 bg-black rounded border border-white/5 flex items-center px-2 overflow-hidden">
-                                  {v.image_variante_url ? (
-                                    <img src={v.image_variante_url || null} alt="" className="w-6 h-6 object-cover rounded mr-2" />
+                                  {v.image ? (
+                                    <img src={v.image || null} alt="" className="w-6 h-6 object-cover rounded mr-2" />
                                   ) : (
                                     <div className="w-6 h-6 bg-white/5 rounded mr-2 flex items-center justify-center"><Plus size={10} /></div>
                                   )}

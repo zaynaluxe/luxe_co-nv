@@ -182,28 +182,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (error) throw error;
 
-      if (variantes && Array.isArray(variantes)) {
-        const variantsToInsert = [];
-        for (const v of variantes) {
-          let image_variante_url = v.image_variante_url || "";
-          if (v.image_base64) {
-            const uploadRes = await cloudinary.uploader.upload(v.image_base64, { folder: "luxe_and_co/variants" });
-            image_variante_url = uploadRes.secure_url;
-          }
-          variantsToInsert.push({
+      // Gestion des variantes avec try/catch séparé
+      try {
+        if (variantes && Array.isArray(variantes) && variantes.length > 0) {
+          const variantsToInsert = variantes.map(v => ({
             produit_id: product.id,
-            valeur_variante: v.valeur_variante,
-            prix_supplementaire: v.prix_supplementaire || 0,
-            stock: v.stock || 0,
-            image_variante_url
-          });
+            nom_variante: v.nom_variante || 'Variante',
+            valeur_variante: v.valeur_variante || v.valeur || '',
+            prix_supplementaire: parseFloat(v.prix_supplementaire || v.prix_supp || 0),
+            stock: parseInt(v.stock || 0),
+            image_variante_url: v.image_variante_url || v.image || null
+          }));
+          await supabase.from('variantes_produits').insert(variantsToInsert);
         }
-        if (variantsToInsert.length > 0) {
-          const { error: varError } = await supabase
-            .from('variantes_produits')
-            .insert(variantsToInsert);
-          if (varError) throw varError;
-        }
+      } catch (e) {
+        console.error('Erreur variantes (POST):', e);
       }
 
       return res.status(201).json(product);
@@ -240,33 +233,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (error) throw error;
 
-      if (variantes && Array.isArray(variantes)) {
-        await supabase
-          .from('variantes_produits')
-          .delete()
-          .eq('produit_id', id);
-
-        const variantsToInsert = [];
-        for (const v of variantes) {
-          let image_variante_url = v.image_variante_url || "";
-          if (v.image_base64) {
-            const uploadRes = await cloudinary.uploader.upload(v.image_base64, { folder: "luxe_and_co/variants" });
-            image_variante_url = uploadRes.secure_url;
-          }
-          variantsToInsert.push({
+      // Gestion des variantes avec try/catch séparé
+      try {
+        await supabase.from('variantes_produits').delete().eq('produit_id', id);
+        if (variantes && Array.isArray(variantes) && variantes.length > 0) {
+          const variantsToInsert = variantes.map(v => ({
             produit_id: id,
-            valeur_variante: v.valeur_variante,
-            prix_supplementaire: v.prix_supplementaire || 0,
-            stock: v.stock || 0,
-            image_variante_url
-          });
+            nom_variante: v.nom_variante || 'Variante',
+            valeur_variante: v.valeur_variante || v.valeur || '',
+            prix_supplementaire: parseFloat(v.prix_supplementaire || v.prix_supp || 0),
+            stock: parseInt(v.stock || 0),
+            image_variante_url: v.image_variante_url || v.image || null
+          }));
+          await supabase.from('variantes_produits').insert(variantsToInsert);
         }
-        if (variantsToInsert.length > 0) {
-          const { error: varError } = await supabase
-            .from('variantes_produits')
-            .insert(variantsToInsert);
-          if (varError) throw varError;
-        }
+      } catch (e) {
+        console.error('Erreur variantes:', e);
       }
 
       return res.status(200).json(product);
