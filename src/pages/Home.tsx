@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
-import { ShoppingBag, ShieldCheck, Truck, RotateCcw, ArrowRight } from 'lucide-react';
+import { ShoppingBag, ShieldCheck, Truck, RotateCcw, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatPrice } from '../utils';
 import { supabase } from '../lib/supabase';
 
@@ -15,9 +15,17 @@ interface Product {
 }
 
 const Home: React.FC = () => {
-  const [newArrivals, setNewArrivals] = useState<Product[]>([]);
+  const [categoryGroups, setCategoryGroups] = useState<{name: string, products: Product[]}[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(0);
+
+  const scroll = (id: string, direction: 'left' | 'right') => {
+    const el = document.getElementById(id);
+    if (el) {
+      const scrollAmount = direction === 'left' ? -600 : 600;
+      el.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
 
   const slides = [
     {
@@ -79,22 +87,30 @@ const Home: React.FC = () => {
             categories (nom)
           `)
           .eq('est_actif', true)
-          .order('date_creation', { ascending: false })
-          .limit(4);
+          .order('date_creation', { ascending: false });
 
         if (error) throw error;
         
-        const flattenedData = data.map((p: any) => ({
-          id: p.id,
-          nom: p.nom,
-          prix: p.prix_base,
-          slug: p.slug,
-          image_url: p.image_principale_url,
-          categorie: Array.isArray(p.categories) ? p.categories[0]?.nom : p.categories?.nom
+        const groups: Record<string, Product[]> = {};
+        data?.forEach((p: any) => {
+          const catName = Array.isArray(p.categories) ? p.categories[0]?.nom : p.categories?.nom || 'Autres';
+          if (!groups[catName]) groups[catName] = [];
+          groups[catName].push({
+            id: p.id,
+            nom: p.nom,
+            prix: p.prix_base,
+            slug: p.slug,
+            image_url: p.image_principale_url,
+            categorie: catName
+          });
+        });
+
+        const groupedArray = Object.entries(groups).map(([name, products]) => ({
+          name,
+          products
         }));
 
-        console.log('Home Products:', flattenedData);
-        setNewArrivals(flattenedData);
+        setCategoryGroups(groupedArray);
       } catch (err) {
         console.error('Error fetching products:', err);
       } finally {
@@ -183,61 +199,95 @@ const Home: React.FC = () => {
         </motion.div>
       </section>
 
-      {/* New Arrivals Section */}
-      <section className="py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 space-y-4 md:space-y-0">
-          <div>
-            <p className="text-[#C9A227] uppercase tracking-widest text-xs mb-2">Nouveautés</p>
-            <h2 className="text-4xl font-serif tracking-widest uppercase">Dernières Créations</h2>
+      {/* Category Sections */}
+      {loading ? (
+        <section className="py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+          <div className="animate-pulse">
+            <div className="h-8 bg-white/5 w-48 mb-10"></div>
+            <div className="flex gap-4 overflow-hidden">
+              {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} className="w-[150px] md:w-[200px] aspect-[3/4] bg-white/5 shrink-0"></div>
+              ))}
+            </div>
           </div>
-          <Link to="/boutique" className="text-xs uppercase tracking-widest text-gray-500 hover:text-[#C9A227] transition-colors flex items-center gap-2 group">
-            Voir tout le catalogue <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
-          </Link>
-        </div>
+        </section>
+      ) : (
+        categoryGroups.map((group, groupIdx) => {
+          const showArrowsDesktop = group.products.length > 5;
+          const showArrowsMobile = group.products.length > 2;
+          const useTwoRowsDesktop = group.products.length >= 6;
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-          {loading ? (
-            // Skeleton / Placeholder
-            Array(4).fill(0).map((_, i) => (
-              <div key={i} className="animate-pulse">
-                <div className="aspect-[3/4] bg-white/5 mb-4"></div>
-                <div className="h-4 bg-white/5 w-3/4 mx-auto mb-2"></div>
-                <div className="h-4 bg-white/5 w-1/2 mx-auto"></div>
-              </div>
-            ))
-          ) : (
-            newArrivals.map((product, i) => (
-              <motion.div 
-                key={product.id}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                className="group"
-              >
-                <Link to={`/produit/${product.slug || product.id}`} className="block relative aspect-[3/4] overflow-hidden bg-black border border-white/5">
-                  <img 
-                    src={product.image_url || null} 
-                    alt={product.nom} 
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                  />
-                  <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors"></div>
-                  <div className="absolute bottom-0 left-0 w-full p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-300 bg-black/60 backdrop-blur-sm">
-                    <button className="w-full bg-white text-black py-2 uppercase tracking-widest text-[10px] font-bold">
-                      Aperçu rapide
-                    </button>
-                  </div>
+          return (
+            <section key={groupIdx} className="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto border-b border-white/5 last:border-0 relative overflow-hidden">
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-xl md:text-2xl font-serif tracking-[0.2em] uppercase">{group.name}</h2>
+                <Link to={`/boutique?cat=${group.name}`} className="text-[10px] uppercase tracking-widest text-[#C9A227] hover:text-white transition-colors">
+                  Voir tout →
                 </Link>
-                <div className="mt-6 text-center">
-                  <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">{product.categorie}</p>
-                  <h3 className="text-sm uppercase tracking-widest font-medium mb-2 group-hover:text-[#C9A227] transition-colors">{product.nom}</h3>
-                  <p className="text-sm font-mono text-[#C9A227]">{formatPrice(product.prix)}</p>
+              </div>
+
+              <div className="relative group/carousel">
+                {/* Navigation Arrows */}
+                <button 
+                  onClick={() => scroll(`carousel-${groupIdx}`, 'left')}
+                  className={`absolute -left-2 top-[40%] -translate-y-1/2 z-20 bg-black/80 border border-white/10 p-1.5 md:p-2 rounded-full transition-opacity items-center justify-center hover:bg-[#C9A227] hover:text-black 
+                    ${showArrowsMobile ? 'flex' : 'hidden'} 
+                    ${showArrowsDesktop ? 'md:flex md:opacity-0 md:group-hover/carousel:opacity-100' : 'md:hidden'}`}
+                  aria-label="Défiler à gauche"
+                >
+                  <ChevronLeft size={18} className="md:w-5 md:h-5" />
+                </button>
+                <button 
+                  onClick={() => scroll(`carousel-${groupIdx}`, 'right')}
+                  className={`absolute -right-2 top-[40%] -translate-y-1/2 z-20 bg-black/80 border border-white/10 p-1.5 md:p-2 rounded-full transition-opacity items-center justify-center hover:bg-[#C9A227] hover:text-black
+                    ${showArrowsMobile ? 'flex' : 'hidden'} 
+                    ${showArrowsDesktop ? 'md:flex md:opacity-0 md:group-hover/carousel:opacity-100' : 'md:hidden'}`}
+                  aria-label="Défiler à droite"
+                >
+                  <ChevronRight size={18} className="md:w-5 md:h-5" />
+                </button>
+
+                <div 
+                  id={`carousel-${groupIdx}`}
+                  className="flex overflow-x-auto gap-4 scroll-smooth snap-x snap-mandatory"
+                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                >
+                  <div 
+                    className={`grid gap-4 grid-flow-col ${useTwoRowsDesktop ? 'grid-rows-1 md:grid-rows-2' : 'grid-rows-1'}`}
+                  >
+                    {group.products.map((product) => (
+                      <div 
+                        key={product.id} 
+                        className="w-[150px] md:w-[200px] scroll-snap-align-start snap-start shrink-0 group/item"
+                      >
+                        <Link to={`/produit/${product.slug || product.id}`} className="block relative aspect-[3/4] overflow-hidden bg-black border border-white/5">
+                          <img 
+                            src={product.image_url || null} 
+                            alt={product.nom} 
+                            className="w-full h-full object-cover group-hover/item:scale-110 transition-transform duration-700"
+                          />
+                          <div className="absolute inset-0 bg-black/20 group-hover/item:bg-black/0 transition-colors"></div>
+                          <div className="absolute bottom-0 left-0 w-full p-4 translate-y-full group-hover/item:translate-y-0 transition-transform duration-300 bg-black/60 backdrop-blur-sm hidden md:block">
+                            <button className="w-full bg-white text-black py-2 uppercase tracking-widest text-[10px] font-bold">
+                              Voir le produit
+                            </button>
+                          </div>
+                        </Link>
+                        <div className="mt-4 text-center">
+                          <h3 className="text-[10px] md:text-xs uppercase tracking-widest font-medium mb-1 truncate group-hover/item:text-[#C9A227] transition-colors">
+                            {product.nom}
+                          </h3>
+                          <p className="text-[10px] md:text-sm font-mono text-[#C9A227]">{formatPrice(product.prix)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </motion.div>
-            ))
-          )}
-        </div>
-      </section>
+              </div>
+            </section>
+          );
+        })
+      )}
 
       <section className="py-24 bg-[#1a1a1a] border-y border-[#C9A227]/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
