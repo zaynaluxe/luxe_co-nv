@@ -75,6 +75,7 @@ interface AdminProduct {
   sections: any[];
   est_actif: boolean;
   est_en_vedette: boolean;
+  afficher_similaires: boolean;
   texte_alignement: 'left' | 'center' | 'right';
   variantes: any[];
 }
@@ -492,6 +493,7 @@ export const AdminProducts: React.FC = () => {
     sections: [] as any[],
     est_actif: true,
     est_en_vedette: false,
+    afficher_similaires: true,
     texte_alignement: 'left' as 'left' | 'center' | 'right',
     variantes: [] as any[]
   });
@@ -813,6 +815,7 @@ export const AdminProducts: React.FC = () => {
         sections: [],
         est_actif: true,
         est_en_vedette: false,
+        afficher_similaires: true,
         texte_alignement: 'left',
         variantes: []
       });
@@ -858,6 +861,7 @@ export const AdminProducts: React.FC = () => {
       sections: product.sections || [],
       est_actif: product.est_actif,
       est_en_vedette: product.est_en_vedette,
+      afficher_similaires: product.afficher_similaires ?? true,
       texte_alignement: product.texte_alignement || 'left',
       variantes: productVariants
     });
@@ -1230,6 +1234,15 @@ export const AdminProducts: React.FC = () => {
                         className="w-4 h-4 accent-[#C9A227]"
                       />
                       <span className="text-xs uppercase tracking-widest text-gray-400">En vedette</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={formData.afficher_similaires}
+                        onChange={e => setFormData({...formData, afficher_similaires: e.target.checked})}
+                        className="w-4 h-4 accent-[#C9A227]"
+                      />
+                      <span className="text-xs uppercase tracking-widest text-gray-400">Afficher similaires</span>
                     </label>
                   </div>
 

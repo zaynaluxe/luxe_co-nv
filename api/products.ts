@@ -106,6 +106,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             images_urls,
             sections,
             texte_alignement,
+            afficher_similaires,
             categories (nom)
           `)
           .or(orFilter)
@@ -149,7 +150,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const user = await authenticateUser(req);
     if (!user || (user as any).role !== 'admin') return res.status(401).json({ error: 'Accès non autorisé.' });
 
-    const { nom, slug, description, prix_base, categorie_id, images_base64, images_urls: existing_urls, sections, texte_alignement, variantes, est_actif, est_en_vedette } = req.body;
+    const { nom, slug, description, prix_base, categorie_id, images_base64, images_urls: existing_urls, sections, texte_alignement, variantes, est_actif, est_en_vedette, afficher_similaires } = req.body;
     
     try {
       let images_urls: string[] = Array.isArray(existing_urls) ? existing_urls : [];
@@ -175,7 +176,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           sections: sections || [], 
           texte_alignement: texte_alignement || 'left',
           est_actif: est_actif !== undefined ? est_actif : true,
-          est_en_vedette: est_en_vedette !== undefined ? est_en_vedette : false
+          est_en_vedette: est_en_vedette !== undefined ? est_en_vedette : false,
+          afficher_similaires: afficher_similaires !== undefined ? afficher_similaires : true
         }])
         .select()
         .single();
@@ -209,7 +211,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const user = await authenticateUser(req);
     if (!user || (user as any).role !== 'admin') return res.status(401).json({ error: 'Accès non autorisé.' });
 
-    const { nom, description, prix_base, categorie_id, est_actif, est_en_vedette, images_urls, sections, texte_alignement, variantes } = req.body;
+    const { nom, description, prix_base, categorie_id, est_actif, est_en_vedette, images_urls, sections, texte_alignement, variantes, afficher_similaires } = req.body;
     try {
       const image_principale_url = images_urls && images_urls.length > 0 ? images_urls[0] : "";
       
@@ -221,7 +223,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           prix_base, 
           categorie_id,
           est_actif, 
-          est_en_vedette, 
+          est_en_vedette,
+          afficher_similaires: afficher_similaires !== undefined ? afficher_similaires : true,
           image_principale_url, 
           images_urls: images_urls || [], 
           sections: sections || [], 

@@ -26,6 +26,8 @@ interface Product {
   variantes: Variante[];
   images_urls?: string[];
   sections?: any[];
+  est_en_vedette?: boolean;
+  afficher_similaires?: boolean;
   texte_alignement?: 'left' | 'center' | 'right';
 }
 
@@ -350,6 +352,7 @@ const ProductDetail: React.FC = () => {
             images_urls,
             sections,
             texte_alignement,
+            afficher_similaires,
             categories (nom),
             variantes_produits (
               id, 
@@ -378,6 +381,7 @@ const ProductDetail: React.FC = () => {
           categorie: Array.isArray(productData.categories) ? productData.categories[0]?.nom : (productData.categories as any)?.nom || 'Sans catégorie',
           images_urls: productData.images_urls || [],
           sections: productData.sections || [],
+          afficher_similaires: productData.afficher_similaires ?? true,
           texte_alignement: productData.texte_alignement || 'left',
           variantes: (productData.variantes_produits || []).map((v: any) => ({
             id: v.id,
@@ -685,7 +689,9 @@ const ProductDetail: React.FC = () => {
         )}
 
         {/* Similar Products */}
-        <SimilarProducts productId={product.id} categoryName={product.categorie} />
+        {product.afficher_similaires !== false && (
+          <SimilarProducts productId={product.id} categoryName={product.categorie} />
+        )}
       </div>
     </div>
   );

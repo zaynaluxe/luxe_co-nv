@@ -28,6 +28,7 @@ CREATE TABLE produits (
     images_urls JSONB DEFAULT '[]',
     est_en_vedette BOOLEAN DEFAULT FALSE,
     est_actif BOOLEAN DEFAULT TRUE,
+    afficher_similaires BOOLEAN DEFAULT TRUE,
     texte_alignement VARCHAR(10) DEFAULT 'left',
     date_creation TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     date_mise_a_jour TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
