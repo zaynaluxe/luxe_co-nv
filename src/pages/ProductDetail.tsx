@@ -262,11 +262,24 @@ const QuickOrderForm: React.FC<{
   );
 };
 
-const ReviewsSection: React.FC<{ productId: number }> = ({ productId }) => {
+const ReviewsSection: React.FC<{ productId: number, manualReviews?: any[] }> = ({ productId, manualReviews }) => {
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (manualReviews && manualReviews.length > 0) {
+      setReviews(manualReviews.map(r => ({
+        prenom: r.nom,
+        nom: '',
+        commentaire: r.avis,
+        note: r.note,
+        date_avis: r.date ? new Date(r.date).toISOString() : new Date().toISOString(),
+        is_manual: true
+      })));
+      setLoading(false);
+      return;
+    }
+
     const fetchReviews = async () => {
       try {
         const { data, error } = await supabase
@@ -285,7 +298,7 @@ const ReviewsSection: React.FC<{ productId: number }> = ({ productId }) => {
     };
 
     fetchReviews();
-  }, [productId]);
+  }, [productId, manualReviews]);
 
   if (loading || reviews.length === 0) return null;
 
@@ -302,7 +315,7 @@ const ReviewsSection: React.FC<{ productId: number }> = ({ productId }) => {
         {reviews.map((review, i) => (
           <div key={i} className="bg-[#1a1a1a] p-8 border border-white/5 space-y-4">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-bold uppercase tracking-widest">{review.prenom} {review.nom?.charAt(0)}.</p>
+              <p className="text-sm font-bold uppercase tracking-widest">{review.prenom} {review.nom ? review.nom.charAt(0) + '.' : ''}</p>
               <div className="flex text-[#C9A227]">
                 {Array(5).fill(0).map((_, j) => (
                   <Star key={j} size={10} fill={j < review.note ? 'currentColor' : 'none'} />
@@ -676,7 +689,7 @@ const ProductDetail: React.FC = () => {
                   </section>
                 );
               case 'REVIEWS':
-                return <ReviewsSection key={idx} productId={product.id} />;
+                return <ReviewsSection key={idx} productId={product.id} manualReviews={section.content.manual_reviews} />;
               default:
                 return null;
             }

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   LayoutDashboard, ShoppingBag, Users, Tag, LogOut, 
-  Plus, Search, Bell, Menu, X, Trash2, Edit, ChevronRight,
+  Plus, Search, Bell, Menu, X, Trash2, Edit, ChevronRight, Star,
   TrendingUp, Package, Clock, CheckCircle, ArrowUp, ArrowDown,
   Activity, Save
 } from 'lucide-react';
@@ -624,7 +624,8 @@ export const AdminProducts: React.FC = () => {
       type,
       content: type === 'IMAGE_TEXT' ? { image: '', text: '', layout: 'left', alignement: 'left' } :
                type === 'TEXT_ONLY' ? { text: '', alignement: 'left' } :
-               type === 'BANNER' ? { text: '', alignement: 'center' } : {}
+               type === 'BANNER' ? { text: '', alignement: 'center' } : 
+               type === 'REVIEWS' ? { manual_reviews: [] } : {}
     };
     setFormData(prev => ({ ...prev, sections: [...prev.sections, newSection] }));
   };
@@ -1492,7 +1493,94 @@ export const AdminProducts: React.FC = () => {
                           )}
 
                           {section.type === 'REVIEWS' && (
-                            <p className="text-[10px] text-gray-500 italic">Cette section affichera automatiquement les avis approuvés.</p>
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between">
+                                <p className="text-[10px] text-gray-500 uppercase tracking-widest">Avis Manuels</p>
+                                <button 
+                                  type="button" 
+                                  onClick={() => {
+                                    const reviews = section.content.manual_reviews || [];
+                                    const today = new Date().toISOString().split('T')[0];
+                                    updateSectionContent(index, 'manual_reviews', [...reviews, { nom: '', avis: '', note: 5, date: today }]);
+                                  }}
+                                  className="text-[10px] text-[#C9A227] hover:underline"
+                                >
+                                  + Ajouter un avis
+                                </button>
+                              </div>
+                              
+                              <div className="space-y-3">
+                                {(section.content.manual_reviews || []).map((review: any, rIdx: number) => (
+                                  <div key={rIdx} className="bg-white/5 p-3 rounded space-y-2 relative group/review">
+                                    <button 
+                                      type="button"
+                                      onClick={() => {
+                                        const reviews = [...section.content.manual_reviews];
+                                        reviews.splice(rIdx, 1);
+                                        updateSectionContent(index, 'manual_reviews', reviews);
+                                      }}
+                                      className="absolute top-2 right-2 text-red-500/30 hover:text-red-500 opacity-0 group-hover/review:opacity-100 transition-opacity"
+                                    >
+                                      <X size={12} />
+                                    </button>
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <input 
+                                        type="text" 
+                                        placeholder="Nom du client"
+                                        value={review.nom}
+                                        onChange={e => {
+                                          const reviews = [...section.content.manual_reviews];
+                                          reviews[rIdx] = { ...reviews[rIdx], nom: e.target.value };
+                                          updateSectionContent(index, 'manual_reviews', reviews);
+                                        }}
+                                        className="w-full bg-black border border-gray-800 p-2 text-[10px] text-white focus:border-[#C9A227] outline-none"
+                                      />
+                                      <input 
+                                        type="date" 
+                                        value={review.date || new Date().toISOString().split('T')[0]}
+                                        onChange={e => {
+                                          const reviews = [...section.content.manual_reviews];
+                                          reviews[rIdx] = { ...reviews[rIdx], date: e.target.value };
+                                          updateSectionContent(index, 'manual_reviews', reviews);
+                                        }}
+                                        className="w-full bg-black border border-gray-800 p-2 text-[10px] text-white focus:border-[#C9A227] outline-none"
+                                      />
+                                    </div>
+                                    <div className="flex items-center gap-1 justify-between">
+                                      <div className="flex items-center gap-1">
+                                        {[1, 2, 3, 4, 5].map(star => (
+                                          <button
+                                            key={star}
+                                            type="button"
+                                            onClick={() => {
+                                              const reviews = [...section.content.manual_reviews];
+                                              reviews[rIdx] = { ...reviews[rIdx], note: star };
+                                              updateSectionContent(index, 'manual_reviews', reviews);
+                                            }}
+                                            className={`${star <= review.note ? 'text-[#C9A227]' : 'text-gray-600'}`}
+                                          >
+                                            <Star size={10} fill={star <= review.note ? 'currentColor' : 'none'} />
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                    <textarea 
+                                      placeholder="Commentaire..."
+                                      value={review.avis}
+                                      onChange={e => {
+                                        const reviews = [...section.content.manual_reviews];
+                                        reviews[rIdx] = { ...reviews[rIdx], avis: e.target.value };
+                                        updateSectionContent(index, 'manual_reviews', reviews);
+                                      }}
+                                      className="w-full bg-black border border-gray-800 p-2 text-[10px] text-white focus:border-[#C9A227] outline-none h-16 resize-none"
+                                    />
+                                  </div>
+                                ))}
+                                {(!section.content.manual_reviews || section.content.manual_reviews.length === 0) && (
+                                  <p className="text-[10px] text-gray-500 italic text-center py-2">Aucun avis manuel ajouté. Cette section affichera les avis automatiques si vide.</p>
+                                )}
+                              </div>
+                            </div>
                           )}
                         </div>
                       ))
