@@ -33,34 +33,53 @@ const authenticateUser = async (req: VercelRequest) => {
 };
 
 async function sendTelegramMessage(message: string) {
-  const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
-  const telegramChatId = process.env.TELEGRAM_CHAT_ID;
-  
-  if (!telegramToken || !telegramChatId) {
-    console.warn("Telegram configuration missing:", { hasToken: !!telegramToken, hasChatId: !!telegramChatId });
-    return;
-  }
+  try {
+    const { data: tgConfigs } = await supabase
+      .from('pixels')
+      .select('pixel_id, chat_id') // pixel_id stores token
+      .eq('type', 'telegram')
+      .eq('est_actif', true);
 
-  const encodedMessage = encodeURIComponent(message);
-  const url = `https://api.telegram.org/bot${telegramToken.trim()}/sendMessage?chat_id=${telegramChatId.trim()}&text=${encodedMessage}&parse_mode=Markdown`;
+    if (!tgConfigs || tgConfigs.length === 0) {
+      console.warn("No active Telegram configuration found");
+      return;
+    }
 
-  return new Promise((resolve) => {
-    https.get(url, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
-        if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-          resolve(true);
-        } else {
-          console.error("Telegram API Error:", data);
+    const encodedMessage = encodeURIComponent(message);
+    const promises = tgConfigs.map(config => {
+      const telegramToken = config.pixel_id;
+      const telegramChatId = config.chat_id;
+      
+      if (!telegramToken || !telegramChatId) {
+        console.warn("Telegram configuration invalid for config:", config);
+        return Promise.resolve(false);
+      }
+
+      const url = `https://api.telegram.org/bot${telegramToken.trim()}/sendMessage?chat_id=${telegramChatId.trim()}&text=${encodedMessage}&parse_mode=Markdown`;
+
+      return new Promise((resolve) => {
+        https.get(url, (res) => {
+          let data = '';
+          res.on('data', (chunk) => data += chunk);
+          res.on('end', () => {
+            if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+              resolve(true);
+            } else {
+              console.error("Telegram API Error:", data);
+              resolve(false);
+            }
+          });
+        }).on('error', (err) => {
+          console.error("Erreur Telegram:", err);
           resolve(false);
-        }
+        });
       });
-    }).on('error', (err) => {
-      console.error("Erreur Telegram:", err);
-      resolve(false);
     });
-  });
+
+    await Promise.all(promises);
+  } catch (err) {
+    console.error("Error in sendTelegramMessage:", err);
+  }
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

@@ -47,7 +47,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!id) {
       // GET /api/pixels
       try {
-        const { data, error } = await supabase.from('pixels').select('id, type, pixel_id, est_actif, date_creation').order('id');
+        const { data, error } = await supabase.from('pixels').select('id, type, pixel_id, nom, chat_id, est_actif, date_creation').order('id');
         if (error) throw error;
         return res.status(200).json(data);
       } catch (err: any) {
@@ -73,10 +73,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const user = await authenticateUser(req);
     if (!user || (user as any).role !== 'admin') return res.status(401).json({ error: 'Accès non autorisé.' });
 
-    const { type, pixel_id, est_actif } = req.body;
+    const { type, pixel_id, nom, chat_id, est_actif } = req.body;
     try {
       const { data, error } = await supabase.from('pixels').insert([{
-        type, pixel_id, est_actif
+        type, pixel_id, nom, chat_id, est_actif
       }]).select().single();
 
       if (error) throw error;
@@ -90,10 +90,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const user = await authenticateUser(req);
     if (!user || (user as any).role !== 'admin') return res.status(401).json({ error: 'Accès non autorisé.' });
 
-    const { type, pixel_id, est_actif } = req.body;
+    const { type, pixel_id, nom, chat_id, est_actif } = req.body;
     try {
       const { data, error } = await supabase.from('pixels').update({
-        type, pixel_id, est_actif
+        type, pixel_id, nom, chat_id, est_actif
       }).eq('id', id).select().single();
 
       if (error) throw error;

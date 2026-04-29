@@ -129,13 +129,14 @@ CREATE INDEX idx_avis_produit ON avis(produit_id);
 -- 10. Table des pixels et tracking
 CREATE TABLE pixels (
     id SERIAL PRIMARY KEY,
-    nom VARCHAR(100) NOT NULL,
-    plateforme VARCHAR(50) NOT NULL, -- ex: 'facebook', 'tiktok', 'snapchat'
-    pixel_id VARCHAR(100) NOT NULL,
+    nom VARCHAR(100),
+    type VARCHAR(50) NOT NULL, -- 'facebook', 'tiktok', 'telegram'
+    pixel_id VARCHAR(255) NOT NULL,
+    chat_id VARCHAR(255), -- For Telegram
     est_actif BOOLEAN DEFAULT TRUE,
     date_creation TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX idx_pixels_plateforme ON pixels(plateforme);
+CREATE INDEX idx_pixels_type ON pixels(type);
 
 -- Triggers pour mettre à jour date_mise_a_jour
 CREATE OR REPLACE FUNCTION update_modified_column()

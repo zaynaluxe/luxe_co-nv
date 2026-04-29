@@ -45,8 +45,10 @@ interface OrderDetail extends AdminOrder {
 
 interface AdminPixel {
   id: number;
-  type: 'facebook' | 'tiktok';
+  type: 'facebook' | 'tiktok' | 'telegram';
   pixel_id: string;
+  nom?: string;
+  chat_id?: string;
   est_actif: boolean;
   date_creation: string;
 }
@@ -2143,6 +2145,16 @@ export const AdminPixels: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
+  
+  // Telegram Bot Modal/Form state
+  const [isBotModalOpen, setIsBotModalOpen] = useState(false);
+  const [currentBot, setCurrentBot] = useState<Partial<AdminPixel>>({
+    type: 'telegram',
+    nom: '',
+    pixel_id: '', // token
+    chat_id: '',
+    est_actif: true
+  });
 
   useEffect(() => {
     fetchPixels();
@@ -2159,9 +2171,7 @@ export const AdminPixels: React.FC = () => {
       });
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        const message = errData.error || 'Failed to fetch pixels';
-        const details = errData.details ? ` (${errData.details})` : '';
-        throw new Error(message + details);
+        throw new Error(errData.error || 'Failed to fetch pixels');
       }
       const data = await response.json();
       
@@ -2180,7 +2190,7 @@ export const AdminPixels: React.FC = () => {
     }
   };
 
-  const handleSave = async (type: 'facebook' | 'tiktok', pixelId: string) => {
+  const handleSavePixel = async (type: 'facebook' | 'tiktok', pixelId: string) => {
     if (type === 'facebook' && pixelId && !/^\d{15,16}$/.test(pixelId)) {
       toast.error('Le Pixel ID Facebook doit contenir 15 ou 16 chiffres.');
       return;
@@ -2203,65 +2213,120 @@ export const AdminPixels: React.FC = () => {
         })
       });
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'Failed to save pixel');
-      }
+      if (!response.ok) throw new Error('Failed to save pixel');
       
       toast.success('Pixel enregistré avec succès');
       fetchPixels();
     } catch (err: any) {
-      console.error('Error saving pixel:', err);
       toast.error(err.message || 'Erreur lors de l\'enregistrement');
     } finally {
       setSaving(null);
     }
   };
 
-  const handleDelete = async (type: 'facebook' | 'tiktok') => {
-    const pixel = pixels.find(p => p.type === type);
-    if (!pixel) return;
+  const handleSaveBot = async () => {
+    if (!currentBot.nom || !currentBot.pixel_id || !currentBot.chat_id) {
+      toast.error('Veuillez remplir tous les champs');
+      return;
+    }
 
-    if (!confirm('Êtes-vous sûr de vouloir supprimer ce pixel ?')) return;
+    setSaving('telegram_bot');
+    try {
+      const response = await apiFetch(`${API_URL}/api/pixels${currentBot.id ? `/${currentBot.id}` : ''}`, {
+        method: currentBot.id ? 'PUT' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+        },
+        body: JSON.stringify({
+          type: 'telegram',
+          nom: currentBot.nom,
+          pixel_id: currentBot.pixel_id,
+          chat_id: currentBot.chat_id,
+          est_actif: currentBot.est_actif
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to save bot');
+      
+      toast.success(currentBot.id ? 'Bot mis à jour' : 'Bot ajouté');
+      setIsBotModalOpen(false);
+      setCurrentBot({ type: 'telegram', nom: '', pixel_id: '', chat_id: '', est_actif: true });
+      fetchPixels();
+    } catch (err: any) {
+      toast.error(err.message || 'Erreur lors de l\'enregistrement');
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const handleDeletePixel = async (pixelId: number) => {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cette configuration ?')) return;
 
     try {
-      const response = await apiFetch(`${API_URL}/api/pixels/${pixel.id}`, {
+      const response = await apiFetch(`${API_URL}/api/pixels/${pixelId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
         }
       });
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'Failed to delete pixel');
-      }
+      if (!response.ok) throw new Error('Failed to delete');
       
-      toast.success('Pixel supprimé');
-      if (type === 'facebook') setFbPixel('');
-      if (type === 'tiktok') setTtPixel('');
+      toast.success('Supprimé avec succès');
       fetchPixels();
     } catch (err: any) {
-      console.error('Error deleting pixel:', err);
       toast.error(err.message || 'Erreur lors de la suppression');
     }
   };
 
-  if (loading) return <div className="p-8 text-center text-gray-500">Chargement...</div>;
+  const togglePixelStatus = async (pixel: AdminPixel) => {
+    try {
+      const response = await apiFetch(`${API_URL}/api/pixels/${pixel.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+        },
+        body: JSON.stringify({
+          ...pixel,
+          est_actif: !pixel.est_actif
+        })
+      });
 
-  if (error) {
-    return (
-      <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-lg text-center">
-        <p className="text-red-400 mb-4">{error}</p>
-        <button 
-          onClick={() => fetchPixels()}
-          className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
-        >
-          Réessayer
-        </button>
-      </div>
-    );
-  }
+      if (!response.ok) throw new Error('Failed to update status');
+      
+      fetchPixels();
+    } catch (err: any) {
+      toast.error(err.message || 'Erreur lors du changement de statut');
+    }
+  };
+
+  const handleTestBot = async (bot: AdminPixel) => {
+    try {
+      const response = await fetch(`https://api.telegram.org/bot${bot.pixel_id}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: bot.chat_id,
+          text: `✅ Test LUXE & CO — Notifications activées pour le bot : ${bot.nom} !`
+        })
+      });
+
+      if (response.ok) {
+        toast.success(`Message de test envoyé à ${bot.nom} !`);
+      } else {
+        const data = await response.json();
+        throw new Error(data.description || 'Erreur API Telegram');
+      }
+    } catch (err: any) {
+      toast.error(`Erreur Test: ${err.message}`);
+    }
+  };
+
+  if (loading && pixels.length === 0) return <div className="p-8 text-center text-gray-500">Chargement...</div>;
+
+  const telegramBots = pixels.filter(p => p.type === 'telegram');
 
   return (
     <div className="space-y-8">
@@ -2295,19 +2360,21 @@ export const AdminPixels: React.FC = () => {
             </div>
             <div className="flex gap-4 pt-4">
               <button 
-                onClick={() => handleSave('facebook', fbPixel)}
+                onClick={() => handleSavePixel('facebook', fbPixel)}
                 disabled={saving === 'facebook'}
                 className="flex-1 bg-[#C9A227] text-black py-3 rounded text-xs uppercase tracking-widest font-bold hover:bg-[#B89120] transition-colors flex items-center justify-center gap-2"
               >
                 <Save size={14} />
                 {saving === 'facebook' ? 'Enregistrement...' : 'Sauvegarder'}
               </button>
-              <button 
-                onClick={() => handleDelete('facebook')}
-                className="px-4 py-3 border border-red-500/20 text-red-500 rounded hover:bg-red-500/10 transition-colors"
-              >
-                <Trash2 size={14} />
-              </button>
+              {pixels.find(p => p.type === 'facebook') && (
+                <button 
+                  onClick={() => handleDeletePixel(pixels.find(p => p.type === 'facebook')!.id)}
+                  className="px-4 py-3 border border-red-500/20 text-red-500 rounded hover:bg-red-500/10 transition-colors"
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -2337,23 +2404,206 @@ export const AdminPixels: React.FC = () => {
             </div>
             <div className="flex gap-4 pt-4">
               <button 
-                onClick={() => handleSave('tiktok', ttPixel)}
+                onClick={() => handleSavePixel('tiktok', ttPixel)}
                 disabled={saving === 'tiktok'}
                 className="flex-1 bg-[#C9A227] text-black py-3 rounded text-xs uppercase tracking-widest font-bold hover:bg-[#B89120] transition-colors flex items-center justify-center gap-2"
               >
                 <Save size={14} />
                 {saving === 'tiktok' ? 'Enregistrement...' : 'Sauvegarder'}
               </button>
-              <button 
-                onClick={() => handleDelete('tiktok')}
-                className="px-4 py-3 border border-red-500/20 text-red-500 rounded hover:bg-red-500/10 transition-colors"
-              >
-                <Trash2 size={14} />
-              </button>
+              {pixels.find(p => p.type === 'tiktok') && (
+                <button 
+                  onClick={() => handleDeletePixel(pixels.find(p => p.type === 'tiktok')!.id)}
+                  className="px-4 py-3 border border-red-500/20 text-red-500 rounded hover:bg-red-500/10 transition-colors"
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Telegram Bots Multi-Bot Management */}
+      <div className="bg-[#1a1a1a] p-8 rounded-lg border border-white/5 space-y-8">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 bg-sky-500/20 rounded-full flex items-center justify-center text-sky-500">
+              TG
+            </div>
+            <div>
+              <h3 className="text-lg font-medium">Telegram Bots</h3>
+              <p className="text-[10px] text-gray-500 uppercase tracking-widest">Multi-Bot Notifications</p>
+            </div>
+          </div>
+          <button 
+            onClick={() => {
+              setCurrentBot({ type: 'telegram', nom: '', pixel_id: '', chat_id: '', est_actif: true });
+              setIsBotModalOpen(true);
+            }}
+            className="px-4 py-2 bg-white/5 text-[#C9A227] border border-[#C9A227]/30 rounded text-[10px] uppercase tracking-widest font-bold hover:bg-[#C9A227] hover:text-black transition-all flex items-center gap-2"
+          >
+            <Plus size={14} />
+            Ajouter un bot
+          </button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-white/5">
+                <th className="py-4 text-[10px] uppercase tracking-widest text-gray-500 font-medium">Nom du bot</th>
+                <th className="py-4 text-[10px] uppercase tracking-widest text-gray-500 font-medium">Chat ID</th>
+                <th className="py-4 text-[10px] uppercase tracking-widest text-gray-500 font-medium">Statut</th>
+                <th className="py-4 text-[10px] uppercase tracking-widest text-gray-500 font-medium text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {telegramBots.length > 0 ? (
+                telegramBots.map((bot) => (
+                  <tr key={bot.id} className="group hover:bg-white/[0.02] transition-colors">
+                    <td className="py-4">
+                      <p className="text-sm font-medium">{bot.nom || 'Sans nom'}</p>
+                    </td>
+                    <td className="py-4">
+                      <p className="text-xs font-mono text-gray-400">{bot.chat_id}</p>
+                    </td>
+                    <td className="py-4">
+                      <button 
+                        onClick={() => togglePixelStatus(bot)}
+                        className={`w-10 h-5 rounded-full relative transition-colors ${bot.est_actif ? 'bg-[#C9A227]' : 'bg-gray-800'}`}
+                      >
+                        <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${bot.est_actif ? 'right-1' : 'left-1'}`}></div>
+                      </button>
+                    </td>
+                    <td className="py-4 text-right space-x-2">
+                      <button 
+                        onClick={() => handleTestBot(bot)}
+                        title="Tester ce bot"
+                        className="p-2 text-gray-400 hover:text-[#C9A227] transition-colors"
+                      >
+                        <Bell size={14} />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setCurrentBot(bot);
+                          setIsBotModalOpen(true);
+                        }}
+                        className="p-2 text-gray-400 hover:text-white transition-colors"
+                      >
+                        <Edit size={14} />
+                      </button>
+                      <button 
+                        onClick={() => handleDeletePixel(bot.id)}
+                        className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={4} className="py-8 text-center text-gray-500 text-xs italic">
+                    Aucun bot Telegram configuré.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Bot Modal */}
+      <AnimatePresence>
+        {isBotModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsBotModalOpen(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-lg bg-[#111] border border-white/10 rounded-xl overflow-hidden shadow-2xl"
+            >
+              <div className="p-6 border-b border-white/5 flex items-center justify-between">
+                <h3 className="text-xl font-serif text-[#C9A227]">
+                  {currentBot.id ? 'Modifier le bot' : 'Ajouter un bot Telegram'}
+                </h3>
+                <button onClick={() => setIsBotModalOpen(false)} className="text-gray-500 hover:text-white">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-8 space-y-6">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-gray-500 mb-2">Nom du Bot / Groupe</label>
+                    <input 
+                      type="text" 
+                      value={currentBot.nom}
+                      onChange={(e) => setCurrentBot({ ...currentBot, nom: e.target.value })}
+                      placeholder="Ex: Alertes Commandes"
+                      className="w-full bg-black border border-white/10 p-3 rounded text-sm focus:border-[#C9A227] outline-none transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-gray-500 mb-2">Token du Bot</label>
+                    <input 
+                      type="text" 
+                      value={currentBot.pixel_id}
+                      onChange={(e) => setCurrentBot({ ...currentBot, pixel_id: e.target.value })}
+                      placeholder="Ex: 123456:ABCdef..."
+                      className="w-full bg-black border border-white/10 p-3 rounded text-sm focus:border-[#C9A227] outline-none transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-gray-500 mb-2">Chat ID</label>
+                    <input 
+                      type="text" 
+                      value={currentBot.chat_id}
+                      onChange={(e) => setCurrentBot({ ...currentBot, chat_id: e.target.value })}
+                      placeholder="Ex: -1001234567890"
+                      className="w-full bg-black border border-white/10 p-3 rounded text-sm focus:border-[#C9A227] outline-none transition-colors"
+                    />
+                  </div>
+                  <div className="flex items-center gap-3 py-2">
+                    <button 
+                      onClick={() => setCurrentBot({ ...currentBot, est_actif: !currentBot.est_actif })}
+                      className={`w-10 h-5 rounded-full relative transition-colors ${currentBot.est_actif ? 'bg-[#C9A227]' : 'bg-gray-800'}`}
+                    >
+                      <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${currentBot.est_actif ? 'right-1' : 'left-1'}`}></div>
+                    </button>
+                    <span className="text-xs text-gray-400">Actif</span>
+                  </div>
+                </div>
+
+                <div className="pt-4 space-y-3">
+                  <button 
+                    onClick={handleSaveBot}
+                    disabled={saving === 'telegram_bot'}
+                    className="w-full bg-[#C9A227] text-black py-4 rounded text-xs uppercase tracking-widest font-bold hover:bg-[#B89120] transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Save size={16} />
+                    {saving === 'telegram_bot' ? 'Enregistrement...' : 'Sauvegarder la configuration'}
+                  </button>
+                  <button 
+                    onClick={() => setIsBotModalOpen(false)}
+                    className="w-full bg-white/5 text-white py-4 rounded text-xs uppercase tracking-widest font-bold hover:bg-white/10 transition-colors"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
