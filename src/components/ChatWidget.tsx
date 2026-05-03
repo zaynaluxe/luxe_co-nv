@@ -42,14 +42,14 @@ export default function ChatWidget() {
   };
 
   return (
-    <div className="fixed bottom-6 right-20 z-[1000]">
+    <>
       <AnimatePresence>
         {open && (
           <motion.div 
-            initial={{ opacity: 0, y: 20, scale: 0.9 }}
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.9 }}
-            className="mb-4 w-80 h-[450px] bg-[#0a0a0a] border border-[#C9A227]/30 rounded-xl flex flex-col overflow-hidden shadow-2xl"
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            className="fixed bottom-[72px] right-3 min-[480px]:bottom-[80px] min-[480px]:right-4 z-[999] w-[calc(100vw-24px)] min-[480px]:w-[calc(100vw-32px)] max-w-[380px] h-[450px] bg-[#0a0a0a] border border-[#C9A227]/30 rounded-xl flex flex-col overflow-hidden shadow-2xl"
           >
             {/* Header */}
             <div className="p-4 bg-[#111] border-b border-[#C9A227]/20 flex items-center justify-between">
@@ -59,7 +59,7 @@ export default function ChatWidget() {
               </div>
               <button 
                 onClick={() => setOpen(false)}
-                className="text-gray-500 hover:text-white transition-colors"
+                className="text-gray-500 hover:text-white transition-colors p-1"
               >
                 <X size={18} />
               </button>
@@ -76,6 +76,7 @@ export default function ChatWidget() {
                     <MessageSquare size={20} />
                   </div>
                   <p className="text-[11px] text-gray-500 uppercase tracking-widest">Comment puis-je vous aider ?</p>
+                  <p className="text-[9px] text-gray-600 px-4">Posez-moi vos questions sur nos produits, la livraison ou nos services.</p>
                 </div>
               )}
               {messages.map((m, i) => (
@@ -129,12 +130,12 @@ export default function ChatWidget() {
 
       <button 
         onClick={() => setOpen(o => !o)}
-        className={`w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 ${
+        className={`fixed bottom-4 right-4 z-[1000] w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 ${
           open ? "bg-white text-black rotate-90" : "bg-[#C9A227] text-black hover:scale-105"
         }`}
       >
         {open ? <X size={24} /> : <MessageSquare size={24} />}
       </button>
-    </div>
+    </>
   );
 }
