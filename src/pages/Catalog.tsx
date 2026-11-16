@@ -46,10 +46,15 @@ const Catalog: React.FC = () => {
             .select('nom')
         ]);
 
-        if (productsRes.error) throw productsRes.error;
-        if (categoriesRes.error) throw categoriesRes.error;
+        if (productsRes.error || categoriesRes.error) {
+          console.warn(
+            'Catalog data unavailable from Supabase:',
+            productsRes.error?.message || categoriesRes.error?.message || 'Network error'
+          );
+          return;
+        }
 
-        const flattenedProducts = productsRes.data.map((p: any) => ({
+        const flattenedProducts = (productsRes.data || []).map((p: any) => ({
           id: p.id,
           nom: p.nom,
           prix: p.prix_base,
@@ -58,7 +63,6 @@ const Catalog: React.FC = () => {
           categorie: Array.isArray(p.categories) ? p.categories[0]?.nom : p.categories?.nom
         }));
 
-        console.log('Catalog Products:', flattenedProducts);
         setProducts(flattenedProducts);
 
         if (categoriesRes.data) {
@@ -71,8 +75,8 @@ const Catalog: React.FC = () => {
             });
           setCategories(sorted);
         }
-      } catch (err) {
-        console.error('Error fetching catalog data:', err);
+      } catch (err: any) {
+        console.warn('Catalog data unavailable:', err?.message || 'Network error');
       } finally {
         setLoading(false);
       }

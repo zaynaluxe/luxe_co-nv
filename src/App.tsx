@@ -105,7 +105,10 @@ const AppContent: React.FC = () => {
     const loadPixels = async () => {
       try {
         const { data: pixels, error } = await supabase.from('pixels').select('*');
-        if (error) throw error;
+        if (error) {
+          console.warn('Pixels unavailable:', error.message || 'Network error');
+          return;
+        }
         
         if (pixels) {
           pixels.forEach((pixel: any) => {
@@ -143,8 +146,8 @@ const AppContent: React.FC = () => {
             }
           });
         }
-      } catch (err) {
-        console.error('Error loading pixels:', err);
+      } catch (err: any) {
+        console.warn('Pixels unavailable:', err?.message || 'Network error');
       }
     };
     loadPixels();

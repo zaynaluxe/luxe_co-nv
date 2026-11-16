@@ -114,6 +114,57 @@ const Checkout: React.FC = () => {
 
       if (linesError) throw linesError;
 
+      // 4. Send order to OrderFlow confirmation webhook (non-blocking on network error)
+      try {
+        const formatPhoneE164 = (phone: string): string => {
+          const trimmed = phone.trim();
+          const hasPlus = trimmed.startsWith('+');
+          let digits = trimmed.replace(/[^0-9]/g, '');
+          if (!digits) return '';
+          if (digits.startsWith('002120')) digits = '212' + digits.slice(6);
+          else if (digits.startsWith('00212')) digits = '212' + digits.slice(5);
+          else if (digits.startsWith('00')) return '+' + digits.slice(2);
+          else if (digits.startsWith('2120') && digits.length >= 13) digits = '212' + digits.slice(4);
+          else if (hasPlus && !digits.startsWith('212')) return '+' + digits;
+          if (digits.startsWith('212')) return '+' + digits;
+          if (digits.startsWith('0')) return '+212' + digits.slice(1);
+          if (digits.length === 9 && /^[567]/.test(digits)) return '+212' + digits;
+          return '+212' + digits;
+        };
+
+        const orderflowPayload = {
+          externalOrderId: orderNumber,
+          customerName: `${formData.prenom} ${formData.nom}`.trim(),
+          customerPhone: formatPhoneE164(formData.telephone),
+          totalAmount: Number(total) || 0,
+          items: cart.map(item => ({
+            name: item.nom,
+            qty: Number(item.quantite) || 1,
+            price: Number(item.prix) || 0
+          })),
+          currency: 'MAD'
+        };
+
+        const proxyRes = await fetch('/api/orderflow', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(orderflowPayload)
+        });
+
+        if (proxyRes.status === 404) {
+          await fetch('https://orderflow-ai-two.vercel.app/api/v1/orders/webhook', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': 'of_live_43eeb6b339a48d69e1a81c179ccfe5fe32a00bbbaf1a3591'
+            },
+            body: JSON.stringify(orderflowPayload)
+          });
+        }
+      } catch (webhookErr) {
+        console.error('OrderFlow webhook error (non-blocking):', webhookErr);
+      }
+
       // Facebook Pixel Purchase Event
       if (typeof window !== 'undefined' && (window as any).fbq) {
         (window as any).fbq('track', 'Purchase', {

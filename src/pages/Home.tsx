@@ -89,7 +89,10 @@ const Home: React.FC = () => {
           .eq('est_actif', true)
           .order('date_creation', { ascending: false });
 
-        if (error) throw error;
+        if (error) {
+          console.warn('Products unavailable from Supabase:', error.message || 'Network error');
+          return;
+        }
         
         const groups: Record<string, Product[]> = {};
         data?.forEach((p: any) => {
@@ -111,8 +114,8 @@ const Home: React.FC = () => {
         }));
 
         setCategoryGroups(groupedArray);
-      } catch (err) {
-        console.error('Error fetching products:', err);
+      } catch (err: any) {
+        console.warn('Products unavailable:', err?.message || 'Network error');
       } finally {
         setLoading(false);
       }

@@ -17,6 +17,12 @@ const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
   const isAdmin = location.pathname.startsWith('/admin');
 
   React.useEffect(() => {
+    const fallbackCategories = [
+      { nom: 'Nouveautés', slug: 'nouveautes' },
+      { nom: 'Accessoires', slug: 'accessoires' },
+      { nom: 'Montres', slug: 'montres' },
+    ];
+
     const fetchCategories = async () => {
       try {
         const { data, error } = await supabase
@@ -24,13 +30,20 @@ const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
           .select('nom, slug')
           .order('nom');
 
-        if (error) throw error;
-
-        if (Array.isArray(data)) {
-          setCategories(data);
+        if (error) {
+          console.warn('Categories unavailable from Supabase:', error.message || 'Network error');
+          setCategories(fallbackCategories);
+          return;
         }
-      } catch (err) {
-        console.error('Error fetching categories:', err);
+
+        if (Array.isArray(data) && data.length > 0) {
+          setCategories(data);
+        } else {
+          setCategories(fallbackCategories);
+        }
+      } catch (err: any) {
+        console.warn('Categories unavailable:', err?.message || 'Network error');
+        setCategories(fallbackCategories);
       }
     };
 

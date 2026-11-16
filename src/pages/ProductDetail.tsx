@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { ShoppingBag, Heart, Share2, Star, ChevronRight, ChevronLeft, ShieldCheck, Truck, RotateCcw, User, Phone, MapPin } from 'lucide-react';
 import { useCart } from '../context/CartContext';
@@ -104,6 +104,7 @@ const QuickOrderForm: React.FC<{
   quantity: number,
   setQuantity: (q: number) => void
 }> = ({ product, selectedVariante, quantity, setQuantity }) => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     nom_complet: '',
     telephone: '',
@@ -141,11 +142,11 @@ const QuickOrderForm: React.FC<{
       }
 
       const orderRes = await response.json();
+      const prix_unitaire = parseFloat(String(product.prix_base)) + (selectedVariante ? parseFloat(String(selectedVariante.prix_supp)) : 0);
+      const total_ttc = prix_unitaire * quantity;
 
       // Facebook Pixel Purchase Event
       if (typeof window !== 'undefined' && (window as any).fbq) {
-        const prix_unitaire = product.prix_base + (selectedVariante?.prix_supp || 0);
-        const total_ttc = prix_unitaire * quantity;
         (window as any).fbq('track', 'Purchase', {
           content_name: product.nom,
           content_category: product.categorie,
@@ -158,9 +159,15 @@ const QuickOrderForm: React.FC<{
         });
       }
 
-      toast.success('Commande envoyée avec succès ! Notre équipe vous contactera sous peu.');
+      toast.success('Commande envoyée avec succès !');
       setFormData({ nom_complet: '', telephone: '', ville: '' });
       setQuantity(1);
+      navigate('/merci', {
+        state: {
+          orderId: orderRes.numero_commande,
+          total: orderRes.total_ttc ?? total_ttc
+        }
+      });
     } catch (err: any) {
       console.error('Error submitting quick order:', err);
       toast.error(err.message || 'Erreur lors de l\'envoi de la commande');

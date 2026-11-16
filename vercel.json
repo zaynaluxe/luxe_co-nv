@@ -12,6 +12,7 @@
     { "source": "/api/promotions/:id*", "destination": "/api/promotions?id=:id*" },
     { "source": "/api/pixels/:id*", "destination": "/api/pixels?id=:id*" },
     { "source": "/api/health", "destination": "/api/health" },
+    { "source": "/api/orderflow", "destination": "/api/orderflow" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }

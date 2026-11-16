@@ -2,6 +2,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import * as jwt from 'jsonwebtoken';
 import https from "https";
+import { sendOrderToOrderFlow, formatPhoneE164 } from '../services/orderflowService.ts';
+import type { OrderFlowItem } from '../services/orderflowService.ts';
 
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
@@ -191,7 +193,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const message = `🚀 *COMMANDE RAPIDE*\n\n*Numéro:* ${numero_commande}\n*Client:* ${prenom} ${nom}\n*Produit:* ${produit_nom}\n*Quantité:* ${quantite}\n*Total:* ${total_ttc} MAD\n*Ville:* ${ville}\n*Tel:* ${telephone}`;
         await sendTelegramMessage(message);
 
-        return res.status(201).json({ message: "Commande créée avec succès", numero_commande });
+        // OrderFlow confirmation webhook (non-blocking on network error)
+        await sendOrderToOrderFlow({
+          externalOrderId: numero_commande,
+          customerName: `${prenom || ''} ${nom || ''}`.trim() || 'Client',
+          customerPhone: formatPhoneE164(telephone),
+          totalAmount: Number(total_ttc) || 0,
+          items: [{ name: produit_nom, qty: Number(quantite) || 1, price: Number(prix_unitaire) || 0 }],
+          currency: 'MAD'
+        });
+
+        return res.status(201).json({ message: "Commande créée avec succès", numero_commande, total_ttc });
       } catch (err) {
         console.error('Quick order handler error:', err);
         return res.status(500).json({ error: "Erreur lors de la création de la commande." });
@@ -244,6 +256,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const orderId = (orderRes as any).id;
         let itemsSummary = "";
+        const orderFlowItems: OrderFlowItem[] = [];
         for (const item of items) {
           let prix_unitaire = 0;
           let produit_nom = "Produit inconnu";
@@ -263,6 +276,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
           }
           itemsSummary += `- ${produit_nom} (x${item.quantite})\n`;
+          orderFlowItems.push({
+            name: produit_nom,
+            qty: Number(item.quantite) || 1,
+            price: Number(prix_unitaire) || 0
+          });
           await supabase.from('lignes_commande').insert([{
             commande_id: orderId, produit_id: item.produit_id, variante_id: v_id, quantite: item.quantite, prix_unitaire
           }]);
@@ -271,6 +289,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Telegram notification
         const message = `🛒 *NOUVELLE COMMANDE (PANIER)*\n\n*Numéro:* ${numero_commande}\n*Client:* ${clientName}\n*Produits:*\n${itemsSummary}\n*Total:* ${total_ttc} MAD\n*Ville:* ${ville_livraison}\n*Tel:* ${telephone_contact}`;
         await sendTelegramMessage(message);
+
+        // OrderFlow confirmation webhook (non-blocking on network error)
+        await sendOrderToOrderFlow({
+          externalOrderId: numero_commande,
+          customerName: clientName,
+          customerPhone: formatPhoneE164(telephone_contact),
+          totalAmount: Number(total_ttc) || 0,
+          items: orderFlowItems,
+          currency: 'MAD'
+        });
 
         return res.status(201).json({ message: "Commande créée avec succès", numero_commande });
       } catch (err) {

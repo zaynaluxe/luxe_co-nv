@@ -13,6 +13,7 @@ import uploadHandler from "./api/upload.ts";
 import promotionsHandler from "./api/promotions.ts";
 import pixelsHandler from "./api/pixels.ts";
 import healthHandler from "./api/health.ts";
+import orderflowHandler from "./api/orderflow.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -81,6 +82,7 @@ app.use("/api/pixels", (req, res) => {
 });
 app.all("/api/health", (req, res) => healthHandler(req as any, res as any));
 app.use("/api/upload", (req, res) => uploadHandler(req as any, res as any));
+app.all("/api/orderflow", (req, res) => orderflowHandler(req as any, res as any));
 
 // API 404 handler to prevent falling through to Vite for non-existent API routes
 app.use("/api", (req, res) => {

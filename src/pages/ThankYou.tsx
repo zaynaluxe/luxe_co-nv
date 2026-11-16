@@ -77,6 +77,25 @@ const ThankYou: React.FC = () => {
             <p className="text-xs uppercase tracking-widest text-gray-500 mb-2">Numéro de commande</p>
             <h2 className="text-3xl font-mono text-white tracking-tighter">{orderData.orderId}</h2>
           </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            className="pt-2 flex flex-col items-center gap-3"
+          >
+            <a
+              href={`https://wa.me/212772875907?text=${encodeURIComponent(`Bonjour, je viens de passer la commande ${orderData.orderId}`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-3 bg-[#25D366] hover:bg-[#1ebe5b] text-black font-bold px-8 py-4 rounded-lg text-sm tracking-wide shadow-lg shadow-[#25D366]/20 transition-all hover:scale-[1.02]"
+            >
+              ✅ Confirmer ma commande sur WhatsApp
+            </a>
+            <p className="text-[11px] text-gray-400 uppercase tracking-widest">
+              Cliquez pour confirmer votre commande instantanément avec notre assistant WhatsApp
+            </p>
+          </motion.div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
@@ -121,7 +140,7 @@ const ThankYou: React.FC = () => {
                 <div className="w-8 h-8 bg-white/5 rounded flex items-center justify-center shrink-0">
                   <Truck size={16} className="text-[#C9A227]" />
                 </div>
-                <p className="text-xs text-gray-400 leading-relaxed">Vous recevrez un appel de confirmation de notre service client.</p>
+                <p className="text-xs text-gray-400 leading-relaxed">Confirmez votre commande sur WhatsApp pour accélérer l'expédition.</p>
               </div>
             </div>
           </motion.div>
